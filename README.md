@@ -22,19 +22,51 @@ In Vercel → Project → Settings → Environment Variables:
 | Name | Description |
 |------|-------------|
 | `SUPERFEEDER_API_TOKEN` | SeaTable API token for the Superfeeders base |
-| `SUPERFEEDER_MONTHLY_BUDGET_JSON` | Optional. JSON map of monthly budgets per client (see below) |
+| `SUPERFEEDER_MONTHLY_BUDGET_JSON` | Optional. JSON map of monthly budgets per client (see below). **You can skip this** until you have numbers. |
 
 After adding or changing variables, **Redeploy** the project.
 
-### Monthly budget JSON
+### Monthly budget JSON (how to create it)
 
-Keys must match **client names** from SeaTable (`CLIENT*`) and month labels exactly as in `Prod Month` (e.g. `Apr 2026`).
+**You do not need this variable for the dashboard to run.** If it is missing, the **This month** tab still shows pipeline counts; budget fields show “Not set” / “N/A”.
 
-Example (single line in Vercel):
+When you are ready:
+
+1. In Vercel open your project → **Settings** → **Environment Variables**.
+2. Click **Add New**.
+3. **Name:** `SUPERFEEDER_MONTHLY_BUDGET_JSON`
+4. **Value:** paste a valid JSON object (see examples below). Use **Production** (and Preview if you want).
+5. Save, then **Deployments** → **…** on the latest deployment → **Redeploy**.
+
+**Shape:** outer keys = **client name exactly as in SeaTable** (`CLIENT*`). Inner keys = **month label exactly as in `Prod Month`** (e.g. `Apr 2026`). Values = **number** (monthly budget in dollars, no `$`).
+
+**Minimal “placeholder”** (no budgets yet, same as omitting the variable):
+
+```json
+{}
+```
+
+**Real example** (one line is easiest to paste in Vercel):
 
 ```json
 {"Acme Corp":{"Mar 2026":10000,"Apr 2026":12000},"Other Client":{"Apr 2026":8000}}
 ```
+
+**Multi-line** is also valid if your Vercel UI allows it:
+
+```json
+{
+  "Acme Corp": {
+    "Mar 2026": 10000,
+    "Apr 2026": 12000
+  },
+  "Other Client": {
+    "Apr 2026": 8000
+  }
+}
+```
+
+Tip: open `/api/data` on your deployment and check `currentMonth[].client` to copy exact client strings.
 
 If a client/month is missing, **This month** shows budget as "Not set" and remaining as "N/A".
 

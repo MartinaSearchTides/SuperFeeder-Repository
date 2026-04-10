@@ -1,0 +1,307 @@
+# SearchTides Dashboard — Developer Briefing for Cursor
+
+This document summarizes the architecture, lessons learned, and known pitfalls from building the first SearchTides Linkbuilding Dashboard. Use this to avoid repeating the same mistakes on the next dashboard.
+
+---
+
+## Project Overview
+
+A real-time KPI dashboard built on:
+- **Frontend**: Single `index.html` (vanilla JS, no framework)
+- **Backend**: Vercel serverless function (`api/data.js`) acting as a proxy to SeaTable API
+- **Hosting**: Vercel (auto-deploy from GitHub)
+- **Data source**: SeaTable self-hosted at `https://seatable.searchtides.com`
+
+The serverless function fetches data from multiple SeaTable bases and returns a single JSON response. The frontend calls `/api/data` on load and on refresh.
+
+---
+
+## Repository Structure
+
+```
+project/
+├── api/
+│   └── data.js        ← Vercel serverless function (Node.js ESM)
+├── index.html         ← Full dashboard (HTML + CSS + JS in one file)
+├── package.json       ← Minimal, no dependencies
+├── robots.txt         ← Blocks all crawlers (noindex)
+└── README.md
+```
+
+### package.json
+```json
+{
+  "name": "searchtides-dashboard",
+  "version": "1.0.0",
+  "private": true
+}
+```
+No `"type": "module"` needed — Vercel handles ESM automatically with a warning but it works.
+
+---
+
+## SeaTable API — Critical Lessons
+
+### 1. Use the API Gateway endpoint (v5.3+)
+The old endpoints are permanently removed. **Only this works:**
+
+```
+GET {dtable_server}api/v2/dtables/{dtable_uuid}/rows/
+    ?table_name=...&view_name=...&limit=1000&start=0&convert_keys=true
+```
+
+**Key insight**: `dtable_server` comes from the `app-access-token` response and already contains the full gateway URL (e.g. `https://seatable.searchtides.com/api-gateway/`). Do NOT hardcode `/api-gateway/` yourself — use `access.dtable_server` directly.
+
+```javascript
+// CORRECT
+const base = access.dtable_server.endsWith("/") ? access.dtable_server : access.dtable_server + "/";
+const url = base + "api/v2/dtables/" + access.dtable_uuid + "/rows/?...";
+
+// WRONG — these return 404
+const url = SERVER + "/dtable-server/api/v1/dtables/...";  // deprecated
+const url = SERVER + "/api/v2/dtables/...";                // wrong path
+const url = SERVER + "/api-gateway/api/v2/dtables/...";    // wrong, use dtable_server value
+```
+
+### 2. Authentication flow
+Each SeaTable base has its own API token. Auth is a two-step process:
+
+```javascript
+// Step 1: get access info (includes dtable_server, dtable_uuid, access_token)
+const res = await fetch(SERVER + "/api/v2.1/dtable/app-access-token/", {
+  headers: { "Authorization": "Token " + apiToken }
+});
+const access = await res.json();
+// access = { dtable_server, dtable_uuid, access_token, ... }
+
+// Step 2: use access_token for all subsequent row requests
+headers: { "Authorization": "Token " + access.access_token }
+```
+
+### 3. Always add `convert_keys=true`
+Without this parameter, the API returns internal column key IDs instead of human-readable column names. Always include it.
+
+### 4. Linked columns return arrays of objects
+Columns of type "Link to other records" return:
+```json
+[{ "row_id": "abc123", "display_value": "FanDuel Casino" }]
+```
+Always resolve with a helper:
+```javascript
+function resolve(val) {
+  if (Array.isArray(val)) val = val[0] || null;
+  if (val && typeof val === "object") return val.display_value || val.name || null;
+  return val || null;
+}
+```
+
+### 5. Pagination is mandatory
+SeaTable returns max 1000 rows per request. Always paginate:
+```javascript
+async function listRows(access, tableName, viewName) {
+  const base = access.dtable_server.endsWith("/") ? access.dtable_server : access.dtable_server + "/";
+  let rows = [], start = 0, limit = 1000;
+  while (true) {
+    let url = base + "api/v2/dtables/" + access.dtable_uuid + "/rows/?" +
+      "table_name=" + encodeURIComponent(tableName) +
+      "&limit=" + limit + "&start=" + start + "&convert_keys=true";
+    if (viewName && viewName.trim()) url += "&view_name=" + encodeURIComponent(viewName);
+    const res = await fetch(url, {
+      headers: { "Authorization": "Token " + access.access_token }
+    });
+    const batch = (await res.json()).rows || [];
+    rows = rows.concat(batch);
+    if (batch.length < limit) break;
+    start += limit;
+  }
+  return rows;
+}
+```
+
+### 6. Load everything in parallel
+Do NOT load bases sequentially. Use Promise.all for both auth and data fetching:
+```javascript
+// Auth all bases at once
+const [omAccess, lbtAccess, cmsAccess, reportingAccess] = await Promise.all([
+  getAccess(OM_TOKEN),
+  getAccess(LBT_TOKEN),
+  getAccess(CMS_TOKEN),
+  getAccess(REPORTING_TOKEN)
+]);
+
+// Fetch all data at once
+const [quotaRows, omRows, lbtRows, cmsRows] = await Promise.all([
+  listRows(omAccess, "QUOTAS", ""),
+  listRows(omAccess, "OM", "Martina Dashboard View"),
+  listRows(lbtAccess, "OM", "View for dashboard"),
+  listRows(cmsAccess, "OM", "Default View_Martina")
+]);
+```
+
+### 7. Emoji column names
+SeaTable columns often have emoji prefixes like `🔹Client`, `🔹Month`. Use Unicode escapes in JS:
+```javascript
+row["\u{1F539}Client"] || row["Client"]  // try both with and without emoji
+```
+In practice, always try both variants as users may rename columns and remove emoji.
+
+### 8. Empty view name = all rows
+To fetch all rows without a view filter, pass an empty string `""` as viewName.
+
+---
+
+## Vercel Serverless Function — Critical Lessons
+
+### 1. Environment variables must be defined before use
+This sounds obvious but caused a runtime crash:
+```javascript
+// WRONG — REPORTING_TOKEN used in if() before being defined
+if (!OM_TOKEN || !REPORTING_TOKEN) { ... }  // crashes: REPORTING_TOKEN not defined
+
+// CORRECT — define all variables first
+const OM_TOKEN        = process.env.OM_API_TOKEN;
+const REPORTING_TOKEN = process.env.REPORTING_API_TOKEN;
+if (!OM_TOKEN || !REPORTING_TOKEN) { ... }
+```
+
+### 2. Redeploy after adding environment variables
+Adding a new env var in Vercel Settings does NOT automatically apply to existing deployments. You must manually redeploy: **Deployments → ... → Redeploy**.
+
+### 3. ESM export syntax
+```javascript
+// Vercel expects default export
+export default async function handler(req, res) { ... }
+```
+
+### 4. Always return JSON errors, never crash silently
+```javascript
+try {
+  // ... all logic
+} catch(err) {
+  console.error(err);
+  return res.status(500).json({ ok: false, error: err.message });
+}
+```
+
+### 5. CORS header
+```javascript
+res.setHeader("Access-Control-Allow-Origin", "*");
+```
+
+### 6. Cache setting
+```javascript
+res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
+// 5 min cache on Vercel edge — good balance between freshness and speed
+```
+
+---
+
+## Frontend — Critical Lessons
+
+### 1. No special characters in JS string literals
+Avoid `·` (U+00B7), `—` (U+2014), `✓` (U+2713) and other non-ASCII characters inside JavaScript strings. They cause `SyntaxError: Invalid or unexpected token` in some browser environments. Use ASCII equivalents:
+```javascript
+// WRONG
+"Pipeline · 45% covered ✓"
+// CORRECT
+"Pipeline - 45% covered"
+```
+
+### 2. Use var, not const/let in concatenated JS strings
+When building HTML strings with JS logic inside, stick to `var` to avoid any hoisting issues in older environments.
+
+### 3. tabular-nums for all numbers
+```css
+font-variant-numeric: tabular-nums;
+```
+Apply to body and all number-displaying elements so digits align properly.
+
+### 4. localStorage is per-browser, not shared
+Any data stored in localStorage (company quotas, AS fee) is only visible to that user on that browser. If multiple team members need to see the same stored values, use a server-side solution (SeaTable column, Vercel Edge Config, etc.).
+
+---
+
+## Design System
+
+### Fonts (Google Fonts)
+```
+Libre Baskerville — display/numbers (serif, strong, tabular)
+Inter — UI text (clean, readable)
+DM Mono — labels, codes, small data
+```
+
+### Color Palette
+```css
+--bg:       #f5f4f0;   /* warm off-white page background */
+--surface:  #ffffff;   /* card background */
+--surface2: #f9f8f5;   /* hover state */
+--surface3: #eeecea;   /* input background */
+--border:   rgba(0,0,0,0.08);
+--border2:  rgba(0,0,0,0.14);
+--text:     #1a1916;
+--muted:    #888580;
+--muted2:   #5a5754;
+
+/* Brand accents — SearchTides purple + teal */
+--purple:   #5b4de0;
+--teal:     #0e9e80;
+--amber:    #c47a1a;
+
+/* Progress bar colors — traffic light */
+--red:      #c0392b;   /* < 50% quota */
+--orange:   #e07820;   /* 50-90% quota */
+--green:    #1a8a52;   /* > 90% quota */
+```
+
+### Progress bar color logic
+```javascript
+function pcClass(p) {
+  return p < 50 ? "red" : p < 90 ? "orange" : "green";
+}
+```
+
+---
+
+## Debugging Tips
+
+### Check what SeaTable actually returns
+Add a debug endpoint or include raw sample rows in the JSON response:
+```javascript
+const debugSample = rows.slice(0, 2).map(r => ({
+  keys: Object.keys(r).slice(0, 10),
+  client: r["CLIENT*"],
+  status: r["STATUS 1"],
+  prod_month: r["Prod Month"]
+}));
+// include in response: debug: { sample: debugSample }
+```
+
+### Check company_quotas_clients in debug output
+If `company_quota` is 0 for all clients, check `debug.company_quotas_clients` in the API response — it shows exactly which client names were loaded from the Reporting base. Compare these against client names from OM base.
+
+### Prod Month format
+The filter `pm !== PM` is very strict — `"Apr 2026"` !== `"Apr  2026"` (extra space). Always `.trim()` both sides. If filtering fails, add debug to log exact `pm` values for a specific client.
+
+---
+
+## Deployment Checklist
+
+1. **GitHub**: Push all files maintaining folder structure (`api/data.js` must be in `api/` folder)
+2. **Vercel**: Import from GitHub, default settings
+3. **Environment Variables**: Add ALL tokens before first deploy
+4. **Redeploy**: After adding any new env var, always manually redeploy
+5. **Test API directly**: Open `/api/data` in browser — check `ok: true` and `debug` values
+6. **robots.txt**: Always include to prevent indexing
+
+---
+
+## Environment Variables Reference
+
+| Variable | Description |
+|----------|-------------|
+| `OM_API_TOKEN` | HSS base (internal OM data + internal QUOTAS) |
+| `LBT_TOKEN` | LBT base (external linkbuilders) |
+| `CMS_API_TOKEN` | CMS Master base (journalists/press) |
+| `REPORTING_API_TOKEN` | Reporting base (company-level quotas) |
+
+All tokens are SeaTable API tokens, not account passwords.

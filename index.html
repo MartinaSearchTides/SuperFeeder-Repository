@@ -25,7 +25,6 @@
   --teal:       #0e9e80;
   --teal-bdr:   rgba(14,158,128,0.22);
   --teal-dim:   rgba(14,158,128,0.08);
-  --teal-bdr:   rgba(14,158,128,0.22);
   --amber:      #c47a1a;
   --sf-accent:  #0f766e;
   --sf-accent-dim: rgba(15,118,110,0.12);
@@ -72,7 +71,7 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
 .tab-content.active { display: block; }
 
 .panel-title { font-family: var(--fd); font-size: 15px; font-weight: 700; margin-bottom: 0.75rem; color: var(--text); }
-.panel-hint { font-size: 12px; color: var(--muted); font-family: var(--fm); margin-bottom: 1rem; }
+.panel-hint { font-size: 13px; color: var(--muted2); font-family: var(--fs); line-height: 1.5; margin-bottom: 1.25rem; max-width: 52rem; }
 
 .table-wrap { overflow-x: auto; border: 1px solid var(--border2); border-radius: 8px; margin-bottom: 2rem; background: var(--surface); }
 .year-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: var(--fm); }
@@ -83,46 +82,54 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
 .year-table tbody tr:hover td:first-child { background: var(--surface2); }
 .num-zero { color: var(--muted); }
 
-.link-grid-title { font-family: var(--fd); font-size: 15px; font-weight: 700; margin: 2rem 0 0.75rem; }
-.link-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
-.link-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; transition: background 0.15s, border-color 0.15s; }
-.link-card:hover { background: var(--surface2); border-color: var(--teal-bdr); }
-.link-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.tag { font-size: 9px; font-family: var(--fm); text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 3px; background: var(--surface3); border: 1px solid var(--border2); color: var(--muted2); }
+.year-split { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border2); }
+.link-grid-title { font-family: var(--fd); font-size: 16px; font-weight: 700; margin: 0 0 0.35rem; }
+.link-grid-sub { font-size: 12px; color: var(--muted); font-family: var(--fs); margin-bottom: 1rem; }
+.link-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.link-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; transition: background 0.15s, border-color 0.15s, box-shadow 0.15s; }
+.link-card:hover { background: var(--surface2); border-color: var(--teal-bdr); box-shadow: 0 4px 14px rgba(0,0,0,0.04); }
+.link-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag { font-size: 10px; font-family: var(--fs); font-weight: 500; letter-spacing: 0.02em; padding: 4px 10px; border-radius: 4px; background: var(--surface3); border: 1px solid var(--border2); color: var(--muted2); }
 .tag-client { color: var(--teal); border-color: var(--teal-bdr); background: var(--teal-dim); }
-.link-card a.url { font-size: 12px; font-family: var(--fm); color: var(--purple); word-break: break-all; text-decoration: none; line-height: 1.35; }
+.link-card a.url { font-size: 12px; font-family: var(--fs); color: var(--purple); word-break: break-all; text-decoration: none; line-height: 1.45; }
 .link-card a.url:hover { text-decoration: underline; }
 .link-domain { font-size: 11px; color: var(--muted); font-family: var(--fm); }
 
-.clients-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
-.sf-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; overflow: hidden; border-top: 3px solid var(--sf-accent); }
-.sf-card:hover { background: var(--surface2); }
-.sf-card-head { padding: 16px 18px 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
-.sf-client { font-family: var(--fd); font-size: 20px; font-weight: 700; }
-.budget-strip { padding: 12px 18px; background: var(--surface2); border-bottom: 1px solid var(--border); font-family: var(--fm); font-size: 12px; display: grid; gap: 6px; }
-.budget-row { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.budget-label { color: var(--muted); text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; }
-.budget-val { font-weight: 600; }
-.rem-neg { color: var(--red); }
-.rem-ok { color: var(--green); }
+.clients-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 20px; }
+.sf-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.sf-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.06); }
+.sf-card-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); border-left: 4px solid var(--sf-accent); }
+.sf-client { font-family: var(--fd); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
 
-.sf-section { padding: 14px 18px; border-bottom: 1px solid var(--border); }
-.sf-section:last-child { border-bottom: none; }
-.sf-sec-title { font-size: 9px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-family: var(--fm); color: var(--amber); margin-bottom: 10px; }
-.sf-sec-title.prof { color: var(--teal); }
-.sf-sec-title.insert { color: var(--purple); }
-.sf-sec-title.guest { color: var(--amber); }
-.sf-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.sf-metrics.two { grid-template-columns: repeat(2, 1fr); }
-.sf-metric { background: var(--surface2); border-radius: 6px; padding: 8px 10px; text-align: center; }
-.sf-metric .lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--fm); margin-bottom: 4px; }
-.sf-metric .val { font-family: var(--fd); font-size: 22px; font-weight: 700; }
+.budget-row-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border2); border-bottom: 1px solid var(--border2); }
+.budget-cell { background: var(--surface2); padding: 14px 16px; text-align: center; }
+.budget-cell .bc-lbl { font-size: 11px; font-family: var(--fs); font-weight: 500; color: var(--muted2); margin-bottom: 6px; }
+.budget-cell .bc-val { font-family: var(--fd); font-size: 24px; font-weight: 700; line-height: 1.1; color: var(--text); }
+.budget-cell .bc-val.sm { font-size: 18px; }
+.rem-neg { color: var(--red) !important; }
+.rem-ok { color: var(--green) !important; }
+.bc-muted { color: var(--muted); font-family: var(--fs) !important; font-size: 15px !important; font-weight: 500 !important; }
 
-.empty-state { padding: 2rem; text-align: center; color: var(--muted); font-family: var(--fm); font-size: 13px; border: 1px dashed var(--border2); border-radius: 8px; }
+.sf-body { padding: 0 20px 20px; }
+.pt-wrap { overflow-x: auto; margin-top: 4px; border-radius: 8px; border: 1px solid var(--border); }
+.pt-table { width: 100%; border-collapse: collapse; font-family: var(--fs); font-size: 13px; }
+.pt-table thead th { text-align: right; font-weight: 600; color: var(--muted2); padding: 12px 14px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 12px; line-height: 1.3; }
+.pt-table thead th:first-child { text-align: left; width: 38%; }
+.pt-table tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border); text-align: right; vertical-align: middle; }
+.pt-table tbody tr:last-child td { border-bottom: none; }
+.pt-table tbody td:first-child { text-align: left; font-weight: 600; color: var(--text); }
+.pt-num { font-family: var(--fd); font-size: 20px; font-weight: 700; color: var(--text); }
+.pt-na { color: var(--muted); font-family: var(--fs); font-size: 15px; font-weight: 400; }
+.row-prof td:first-child { box-shadow: inset 3px 0 0 var(--teal); }
+.row-ins td:first-child { box-shadow: inset 3px 0 0 var(--purple); }
+.row-guest td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
+.pt-footnote { font-size: 11px; color: var(--muted); font-family: var(--fs); margin-top: 10px; line-height: 1.45; }
 
-@media (max-width: 900px) {
-  .sf-metrics { grid-template-columns: 1fr; }
-  .sf-metrics.two { grid-template-columns: 1fr; }
+.empty-state { padding: 2rem; text-align: center; color: var(--muted); font-family: var(--fs); font-size: 14px; line-height: 1.5; border: 1px dashed var(--border2); border-radius: 10px; background: var(--surface); }
+
+@media (max-width: 700px) {
+  .budget-row-cards { grid-template-columns: 1fr; }
+  .pt-table thead th:nth-child(4), .pt-table tbody td:nth-child(4) { min-width: 7rem; }
 }
 </style>
 </head>
@@ -157,10 +164,13 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
     <div class="tab" data-tab="month" onclick="switchTab('month')">This month</div>
   </div>
   <div class="tab-content active" id="tab-year">
-    <p class="panel-hint">Published article counts per client by month (2026). Below: link cards for each published row.</p>
+    <p class="panel-hint"><strong>2026 overview.</strong> Numbers are published articles only (counts by client and production month). Further down, each card opens the live URL from SeaTable.</p>
     <div id="year-table-host"></div>
-    <div class="link-grid-title">Published links</div>
-    <div class="link-grid" id="link-grid"></div>
+    <div class="year-split">
+      <h2 class="link-grid-title">Published links</h2>
+      <p class="link-grid-sub" id="link-grid-sub"></p>
+      <div class="link-grid" id="link-grid"></div>
+    </div>
   </div>
   <div class="tab-content" id="tab-month">
     <p class="panel-hint" id="month-hint"></p>
@@ -236,9 +246,11 @@ function renderYearTable(payload) {
 
 function renderLinkGrid(payload) {
   var grid = document.getElementById("link-grid");
+  var sub = document.getElementById("link-grid-sub");
   var tiles = payload.publishedTiles || [];
+  if (sub) sub.textContent = tiles.length ? tiles.length + " articles with status Published in 2026." : "";
   if (!tiles.length) {
-    grid.innerHTML = '<div class="empty-state">No published tiles for 2026.</div>';
+    grid.innerHTML = '<div class="empty-state">No published rows for 2026 yet.</div>';
     return;
   }
   var html = "";
@@ -263,14 +275,48 @@ function renderLinkGrid(payload) {
   grid.innerHTML = html;
 }
 
+function budgetCell(lbl, innerHtml, valClass) {
+  var vc = valClass ? " " + valClass : "";
+  return '<div class="budget-cell"><div class="bc-lbl">' + esc(lbl) + '</div><div class="bc-val' + vc + '">' + innerHtml + "</div></div>";
+}
+
+function postTypeTable(prof, ins, guest) {
+  var html = '<div class="sf-body">';
+  html += '<div class="pt-wrap"><table class="pt-table">';
+  html += "<thead><tr>";
+  html += '<th scope="col">Type of post</th>';
+  html += '<th scope="col">Published</th>';
+  html += '<th scope="col">Pending</th>';
+  html += '<th scope="col">Content requested</th>';
+  html += "</tr></thead><tbody>";
+  html += ptRow("Profound Placement", "row-prof", prof, false);
+  html += ptRow("Link insert", "row-ins", ins, false);
+  html += ptRow("Guest post", "row-guest", guest, true);
+  html += "</tbody></table></div>";
+  html += "<p class=\"pt-footnote\">Content requested is only tracked for guest posts. Budget math matches the API (FINAL $).</p>";
+  html += "</div>";
+  return html;
+}
+
+function ptRow(name, rowClass, data, showCR) {
+  var cr = showCR
+    ? '<span class="pt-num">' + fmtInt(data.content_requested) + "</span>"
+    : '<span class="pt-na">-</span>';
+  return '<tr class="' + rowClass + '"><td>' + esc(name) + "</td>" +
+    '<td><span class="pt-num">' + fmtInt(data.published) + "</span></td>" +
+    '<td><span class="pt-num">' + fmtInt(data.pending) + "</span></td>" +
+    "<td>" + cr + "</td></tr>";
+}
+
 function renderMonth(payload) {
-  document.getElementById("month-hint").textContent =
-    "Prod Month " + (payload.current_prod_month || "") + " - counts by Type of Post. Content Requested only applies to Guest Post.";
+  var pm = payload.current_prod_month || "";
+  document.getElementById("month-hint").innerHTML =
+    "<strong>This month.</strong> Production month <strong>" + esc(pm) + "</strong>. One table per client: pipeline by post type, then budget summary above the fold.";
 
   var grid = document.getElementById("month-grid");
   var list = payload.currentMonth || [];
   if (!list.length) {
-    grid.innerHTML = '<div class="empty-state">No rows for this month (and no budget configured for this month in SUPERFEEDER_MONTHLY_BUDGET_JSON).</div>';
+    grid.innerHTML = '<div class="empty-state">No data for this month yet. If you expect budget rows only, set <code>SUPERFEEDER_MONTHLY_BUDGET_JSON</code> in Vercel (client names must match SeaTable).</div>';
     return;
   }
   var html = "";
@@ -289,36 +335,16 @@ function renderMonth(payload) {
     html += '<div class="sf-card">';
     html += '<div class="sf-card-head"><div class="sf-client">' + esc(c.client) + "</div></div>";
 
-    html += '<div class="budget-strip">';
-    html += '<div class="budget-row"><span class="budget-label">Monthly budget</span><span class="budget-val">' +
-      (bud == null ? "Not set" : "$" + fmtMoney(bud)) + "</span></div>";
-    html += '<div class="budget-row"><span class="budget-label">Spend (FINAL $)</span><span class="budget-val">$' + fmtMoney(spend) + "</span></div>";
-    html += '<div class="budget-row"><span class="budget-label">Remaining</span><span class="budget-val ' + remClass + '">' +
-      (rem == null ? "N/A" : "$" + fmtMoney(rem)) + "</span></div>";
+    html += '<div class="budget-row-cards">';
+    html += budgetCell("Monthly budget", bud == null ? '<span class="bc-muted">Not set</span>' : "$" + fmtMoney(bud), "");
+    html += budgetCell("Spend (FINAL $)", "$" + fmtMoney(spend), "");
+    html += budgetCell("Remaining", rem == null ? '<span class="bc-muted">N/A</span>' : "$" + fmtMoney(rem), remClass);
     html += "</div>";
 
-    html += sectionBlock("Profound Placement", "prof", prof, false);
-    html += sectionBlock("Link Insert", "insert", ins, false);
-    html += sectionBlock("Guest Post", "guest", guest, true);
-
+    html += postTypeTable(prof, ins, guest);
     html += "</div>";
   }
   grid.innerHTML = html;
-}
-
-function sectionBlock(title, cls, data, showCR) {
-  var html = '<div class="sf-section">';
-  html += '<div class="sf-sec-title ' + cls + '">' + esc(title) + "</div>";
-  html += '<div class="sf-metrics' + (showCR ? "" : " two") + '">';
-  html += metricCell("Published", data.published);
-  html += metricCell("Pending", data.pending);
-  if (showCR) html += metricCell("Content req.", data.content_requested);
-  html += "</div></div>";
-  return html;
-}
-
-function metricCell(lbl, val) {
-  return '<div class="sf-metric"><div class="lbl">' + esc(lbl) + '</div><div class="val">' + fmtInt(val) + "</div></div>";
 }
 
 async function loadData() {
