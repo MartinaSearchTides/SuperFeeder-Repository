@@ -116,7 +116,7 @@ function getPostTypeCanonical(row) {
   const rr = resolve(raw);
   let s = rr != null ? String(rr).trim() : raw == null || raw === "" ? "" : String(raw).trim();
   if (!s || s === "-" || /^n\/?a$/i.test(s)) {
-    return POST_LINK_INSERT;
+    return POST_OTHER;
   }
   const norm = s.toLowerCase().replace(/\s+/g, " ");
   if (norm === POST_PROFOUND.toLowerCase()) return POST_PROFOUND;

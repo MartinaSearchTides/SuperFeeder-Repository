@@ -374,10 +374,6 @@ function budgetCell(lbl, innerHtml, valClass) {
   return '<div class="budget-cell"><div class="bc-lbl">' + esc(lbl) + '</div><div class="bc-val' + vc + '">' + innerHtml + "</div></div>";
 }
 
-function sectionHasActivity(s) {
-  return s && (s.published > 0 || s.pending > 0 || s.content_requested > 0);
-}
-
 function postTypeTable(prof, ins, guest, other) {
   var oth = other || { published: 0, pending: 0, content_requested: 0 };
   var html = '<div class="sf-body">';
@@ -391,9 +387,7 @@ function postTypeTable(prof, ins, guest, other) {
   html += ptRow("Profound Placement", "row-prof", prof, false);
   html += ptRow("Link insert", "row-ins", ins, false);
   html += ptRow("Guest post", "row-guest", guest, true);
-  if (sectionHasActivity(oth)) {
-    html += ptRow("Other", "row-other", oth, false);
-  }
+  html += ptRow("Other (no or unknown type)", "row-other", oth, false);
   html += "</tbody></table></div>";
   html += "<p class=\"pt-footnote\">Content requested is only tracked for guest posts. Budget math matches the API (FINAL $).</p>";
   html += "</div>";
