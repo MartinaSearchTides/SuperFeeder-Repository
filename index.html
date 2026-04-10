@@ -275,15 +275,12 @@ function renderYearTable(payload) {
 
 function monthIndexInYear(label, monthsOrder) {
   var idx = monthsOrder.indexOf(label);
-  return idx >= 0 ? idx : 99;
+  return idx >= 0 ? idx : -1;
 }
 
-function sortMonthsForLinks(monthsPresent, currentProdMonth, monthsOrder) {
+function sortMonthsForLinksDesc(monthsPresent, monthsOrder) {
   return monthsPresent.slice().sort(function (a, b) {
-    var aCur = a === currentProdMonth ? 0 : 1;
-    var bCur = b === currentProdMonth ? 0 : 1;
-    if (aCur !== bCur) return aCur - bCur;
-    return monthIndexInYear(a, monthsOrder) - monthIndexInYear(b, monthsOrder);
+    return monthIndexInYear(b, monthsOrder) - monthIndexInYear(a, monthsOrder);
   });
 }
 
@@ -313,7 +310,7 @@ function renderLinkGrid(payload) {
 
   if (sub) {
     sub.textContent = tiles.length
-      ? tiles.length + " published articles in 2026. Grouped by month (current first), then by client. Each month uses a different band color."
+      ? tiles.length + " published articles in 2026. Months newest-first (e.g. Apr, Mar, Feb), then by client. Each month has its own band color."
       : "";
   }
   if (!tiles.length) {
@@ -331,12 +328,13 @@ function renderLinkGrid(payload) {
     byMonth[m][cl].push(t);
   }
 
-  var sortedMonths = sortMonthsForLinks(Object.keys(byMonth), cur, monthsOrder);
+  var sortedMonths = sortMonthsForLinksDesc(Object.keys(byMonth), monthsOrder);
   var out = "";
 
   for (var mi = 0; mi < sortedMonths.length; mi++) {
     var monthLabel = sortedMonths[mi];
-    var toneN = monthIndexInYear(monthLabel, monthsOrder) % 6;
+    var miIdx = monthIndexInYear(monthLabel, monthsOrder);
+    var toneN = miIdx >= 0 ? miIdx % 6 : 0;
     var isCur = monthLabel === cur;
     out += '<section class="month-band mb-tone-' + toneN + '">';
     out += '<div class="month-band-h">' + esc(monthLabel);
