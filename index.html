@@ -139,13 +139,19 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
 .sf-body { padding: 0 20px 20px; }
 .pt-wrap { overflow-x: auto; margin-top: 4px; border-radius: 8px; border: 1px solid var(--border); }
 .pt-table { width: 100%; border-collapse: collapse; font-family: var(--fs); font-size: 13px; }
-.pt-table thead th { text-align: right; font-weight: 600; color: var(--muted2); padding: 12px 14px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 12px; line-height: 1.3; }
-.pt-table thead th:first-child { text-align: left; width: 38%; }
+.pt-table thead th { text-align: right; padding: 14px 12px; vertical-align: bottom; line-height: 1.2; }
+.pt-table thead th.pt-th-type { text-align: left; width: 34%; font-family: var(--fd); font-size: 15px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); background: var(--surface2); border-bottom: 3px solid var(--border2); }
+.pt-table thead th.pt-th-pub { font-family: var(--fd); font-size: 15px; font-weight: 700; letter-spacing: -0.02em; color: #0a5c4e; background: rgba(14,158,128,0.2); border-bottom: 3px solid var(--teal); }
+.pt-table thead th.pt-th-pend { font-family: var(--fd); font-size: 15px; font-weight: 700; letter-spacing: -0.02em; color: var(--purple); background: var(--purple-dim); border-bottom: 3px solid var(--purple); }
+.pt-table thead th.pt-th-cr { font-family: var(--fd); font-size: 15px; font-weight: 700; letter-spacing: -0.02em; color: #7a4810; background: rgba(196,122,26,0.16); border-bottom: 3px solid var(--amber); }
 .pt-table tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border); text-align: right; vertical-align: middle; }
 .pt-table tbody tr:last-child td { border-bottom: none; }
-.pt-table tbody td:first-child { text-align: left; font-weight: 600; color: var(--text); }
+.pt-table tbody td.pt-td-type { text-align: left; font-family: var(--fd); font-size: 14px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
+.pt-table tbody td.pt-td-pub { background: rgba(14,158,128,0.09); }
+.pt-table tbody td.pt-td-pend { background: rgba(91,77,224,0.07); }
+.pt-table tbody td.pt-td-cr { background: rgba(196,122,26,0.09); }
 .pt-num { font-family: var(--fd); font-size: 20px; font-weight: 700; color: var(--text); }
-.pt-na { color: var(--muted); font-family: var(--fs); font-size: 15px; font-weight: 400; }
+.pt-na { color: var(--muted); font-family: var(--fs); font-size: 16px; font-weight: 500; }
 .row-prof td:first-child { box-shadow: inset 3px 0 0 var(--teal); }
 .row-ins td:first-child { box-shadow: inset 3px 0 0 var(--purple); }
 .row-guest td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
@@ -370,10 +376,10 @@ function postTypeTable(prof, ins, guest) {
   var html = '<div class="sf-body">';
   html += '<div class="pt-wrap"><table class="pt-table">';
   html += "<thead><tr>";
-  html += '<th scope="col">Type of post</th>';
-  html += '<th scope="col">Published</th>';
-  html += '<th scope="col">Pending</th>';
-  html += '<th scope="col">Content requested</th>';
+  html += '<th scope="col" class="pt-th-type">Type of post</th>';
+  html += '<th scope="col" class="pt-th-pub">Published</th>';
+  html += '<th scope="col" class="pt-th-pend">Pending</th>';
+  html += '<th scope="col" class="pt-th-cr">Content requested</th>';
   html += "</tr></thead><tbody>";
   html += ptRow("Profound Placement", "row-prof", prof, false);
   html += ptRow("Link insert", "row-ins", ins, false);
@@ -388,10 +394,10 @@ function ptRow(name, rowClass, data, showCR) {
   var cr = showCR
     ? '<span class="pt-num">' + fmtInt(data.content_requested) + "</span>"
     : '<span class="pt-na">-</span>';
-  return '<tr class="' + rowClass + '"><td>' + esc(name) + "</td>" +
-    '<td><span class="pt-num">' + fmtInt(data.published) + "</span></td>" +
-    '<td><span class="pt-num">' + fmtInt(data.pending) + "</span></td>" +
-    "<td>" + cr + "</td></tr>";
+  return '<tr class="' + rowClass + '"><td class="pt-td-type">' + esc(name) + "</td>" +
+    '<td class="pt-td-pub"><span class="pt-num">' + fmtInt(data.published) + "</span></td>" +
+    '<td class="pt-td-pend"><span class="pt-num">' + fmtInt(data.pending) + "</span></td>" +
+    '<td class="pt-td-cr">' + cr + "</td></tr>";
 }
 
 function renderMonth(payload) {
