@@ -100,18 +100,24 @@ function getStatusCanonical(row) {
   return null;
 }
 
-function getPostTypeCanonical(row) {
-  const keys = ["Type of Post", "Type Of Post", "TYPE OF POST", "Type of post"];
-  let raw = null;
-  for (let i = 0; i < keys.length; i++) {
-    if (row[keys[i]] != null && row[keys[i]] !== "") {
-      raw = row[keys[i]];
-      break;
-    }
+function findTypeOfPostRaw(row) {
+  const direct = ["Type of Post", "Type Of Post", "TYPE OF POST", "Type of post"];
+  for (let i = 0; i < direct.length; i++) {
+    if (Object.prototype.hasOwnProperty.call(row, direct[i])) return row[direct[i]];
   }
+  for (const k of Object.keys(row)) {
+    if (/type\s*of\s*post/i.test(String(k).replace(/^\uFEFF/, "").trim())) return row[k];
+  }
+  return undefined;
+}
+
+function getPostTypeCanonical(row) {
+  const raw = findTypeOfPostRaw(row);
   const rr = resolve(raw);
-  const s = (rr != null ? String(rr) : raw == null ? "" : String(raw)).trim();
-  if (!s) return POST_OTHER;
+  let s = rr != null ? String(rr).trim() : raw == null || raw === "" ? "" : String(raw).trim();
+  if (!s || s === "-" || /^n\/?a$/i.test(s)) {
+    return POST_LINK_INSERT;
+  }
   const norm = s.toLowerCase().replace(/\s+/g, " ");
   if (norm === POST_PROFOUND.toLowerCase()) return POST_PROFOUND;
   if (norm === POST_LINK_INSERT.toLowerCase()) return POST_LINK_INSERT;
