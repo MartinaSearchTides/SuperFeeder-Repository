@@ -387,9 +387,9 @@ function postTypeTable(prof, ins, guest, other) {
   html += ptRow("Profound Placement", "row-prof", prof, false);
   html += ptRow("Link insert", "row-ins", ins, false);
   html += ptRow("Guest post", "row-guest", guest, true);
-  html += ptRow("Other (no or unknown type)", "row-other", oth, false);
+  html += ptRow("Other (no or unknown type)", "row-other", oth, true);
   html += "</tbody></table></div>";
-  html += "<p class=\"pt-footnote\">Content requested is only tracked for guest posts. Budget math matches the API (FINAL $).</p>";
+  html += "<p class=\"pt-footnote\">Content requested: guest posts and rows in Other (empty or unknown type). Profound and link insert use \"-\". Budget uses FINAL $ per API rules.</p>";
   html += "</div>";
   return html;
 }

@@ -23,6 +23,7 @@ In Vercel → Project → Settings → Environment Variables:
 |------|-------------|
 | `SUPERFEEDER_API_TOKEN` | SeaTable API token for the Superfeeders base |
 | `SUPERFEEDER_MONTHLY_BUDGET_JSON` | Optional. JSON map of monthly budgets per client (see below). **You can skip this** until you have numbers. |
+| `SUPERFEEDER_TIMEZONE` | Optional. IANA zone for “current production month” (default `Europe/Prague`). Use e.g. `America/New_York` if your team aligns months to US Eastern. |
 
 After adding or changing variables, **Redeploy** the project.
 
@@ -70,7 +71,7 @@ Tip: open `/api/data` on your deployment and check `currentMonth[].client` to co
 
 If a client/month is missing, **This month** shows budget as "Not set" and remaining as "N/A".
 
-**Spend** for the current month is the sum of **FINAL $** for that client and month for all rows that are **Published** or **Pending** (any Type of Post), plus **Content Requested** rows **only** when Type of Post is **Guest Post** (Content Requested on Profound / Link Insert is excluded).
+**Spend** for the current month is the sum of **FINAL $** for that client and month for all rows that are **Published** or **Pending** (any Type of Post), plus **Content Requested** rows when Type of Post is **Guest Post** or **Other** (empty or unknown type). Content Requested on Profound / Link Insert is excluded from spend.
 
 ## Data source
 

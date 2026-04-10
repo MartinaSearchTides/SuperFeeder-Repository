@@ -57,7 +57,23 @@ function resolve(val) {
 }
 
 function prodMonthNow() {
-  return new Date().toLocaleString("en-US", { month: "short", year: "numeric" });
+  const tz = process.env.SUPERFEEDER_TIMEZONE || "Europe/Prague";
+  try {
+    return new Date().toLocaleString("en-US", {
+      month: "short",
+      year: "numeric",
+      timeZone: tz
+    });
+  } catch (e) {
+    return new Date().toLocaleString("en-US", { month: "short", year: "numeric" });
+  }
+}
+
+function normalizeProdMonthLabel(pm) {
+  return String(pm == null ? "" : pm)
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function monthsOfYear(year) {
@@ -70,7 +86,7 @@ function monthsOfYear(year) {
 
 /** Parse "Apr 2026" style labels */
 function parseProdMonthLabel(label) {
-  const s = String(label || "").trim();
+  const s = normalizeProdMonthLabel(label);
   const m = s.match(/^([A-Za-z]+)\s+(\d{4})$/);
   if (!m) return null;
   const monPart = m[1].slice(0, 3);
@@ -83,12 +99,43 @@ function parseProdMonthLabel(label) {
   return { year: y, monthIndex: idx, label: MONTH_SHORT[idx] + " " + y };
 }
 
+function findClientRaw(row) {
+  const direct = ["CLIENT*", "CLIENT", "Client", "client"];
+  for (let i = 0; i < direct.length; i++) {
+    if (Object.prototype.hasOwnProperty.call(row, direct[i])) return row[direct[i]];
+  }
+  for (const k of Object.keys(row)) {
+    const kn = String(k).replace(/^\uFEFF/, "").trim();
+    if (kn === "CLIENT*" || /^client\*$/i.test(kn) || /^client$/i.test(kn)) return row[k];
+  }
+  return undefined;
+}
+
 function getClient(row) {
-  return resolve(row["CLIENT*"] || row["CLIENT"] || row["Client"]);
+  const raw = findClientRaw(row);
+  const v = resolve(raw);
+  const s = v != null ? String(v).trim() : raw == null || raw === "" ? "" : String(raw).trim();
+  return s || null;
+}
+
+function findStatusRaw(row) {
+  const direct = ["STATUS 1", "STATUS1", "Status 1", "Status", "STATUS", "Pipeline status", "Pipeline Status"];
+  for (let i = 0; i < direct.length; i++) {
+    if (Object.prototype.hasOwnProperty.call(row, direct[i])) return row[direct[i]];
+  }
+  for (const k of Object.keys(row)) {
+    const kn = String(k).replace(/^\uFEFF/, "").trim();
+    if (/^status\s*1$/i.test(kn)) return row[k];
+  }
+  for (const k of Object.keys(row)) {
+    const kn = String(k).replace(/^\uFEFF/, "").trim();
+    if (/^status$/i.test(kn)) return row[k];
+  }
+  return undefined;
 }
 
 function getStatusCanonical(row) {
-  const v = row["STATUS 1"];
+  const v = findStatusRaw(row);
   const r = resolve(v);
   const raw = r != null ? r : v;
   const s = raw == null ? "" : String(raw).trim();
@@ -101,12 +148,22 @@ function getStatusCanonical(row) {
 }
 
 function findTypeOfPostRaw(row) {
-  const direct = ["Type of Post", "Type Of Post", "TYPE OF POST", "Type of post"];
+  const direct = [
+    "Type of Post",
+    "Type Of Post",
+    "TYPE OF POST",
+    "Type of post",
+    "Post Type",
+    "Post type",
+    "POST TYPE"
+  ];
   for (let i = 0; i < direct.length; i++) {
     if (Object.prototype.hasOwnProperty.call(row, direct[i])) return row[direct[i]];
   }
   for (const k of Object.keys(row)) {
-    if (/type\s*of\s*post/i.test(String(k).replace(/^\uFEFF/, "").trim())) return row[k];
+    const kn = String(k).replace(/^\uFEFF/, "").trim();
+    if (/type\s*of\s*post/i.test(kn)) return row[k];
+    if (/^post\s*type$/i.test(kn)) return row[k];
   }
   return undefined;
 }
@@ -144,6 +201,7 @@ function getLiveLink(row) {
 function rowCountsTowardSpend(status, postType) {
   if (status === STATUS_PUBLISHED || status === STATUS_PENDING) return true;
   if (status === STATUS_CONTENT_REQUESTED && postType === POST_GUEST) return true;
+  if (status === STATUS_CONTENT_REQUESTED && postType === POST_OTHER) return true;
   return false;
 }
 
@@ -200,8 +258,16 @@ export default async function handler(req, res) {
 
     for (const row of rows) {
       const client = getClient(row);
-      const pmRaw = row["Prod Month"];
-      const pm = (pmRaw == null ? "" : String(resolve(pmRaw) || pmRaw)).trim();
+      let pmRaw = row["Prod Month"];
+      if (pmRaw == null) {
+        for (const k of Object.keys(row)) {
+          if (/^prod\s*month$/i.test(String(k).replace(/^\uFEFF/, "").trim())) {
+            pmRaw = row[k];
+            break;
+          }
+        }
+      }
+      const pm = normalizeProdMonthLabel(resolve(pmRaw) != null ? resolve(pmRaw) : pmRaw);
       const parsed = parseProdMonthLabel(pm);
       const status = getStatusCanonical(row);
       const postType = getPostTypeCanonical(row);
@@ -226,13 +292,18 @@ export default async function handler(req, res) {
         });
       }
 
-      if (pm === PM_CURRENT) {
+      if (pm === normalizeProdMonthLabel(PM_CURRENT)) {
         currentClientsSet.add(client);
         if (!currentSections[client]) currentSections[client] = sectionTemplate();
+        if (!currentSections[client][postType]) {
+          currentSections[client][postType] = emptySection();
+        }
         const sec = currentSections[client][postType];
         if (status === STATUS_PUBLISHED) sec.published += 1;
         else if (status === STATUS_PENDING) sec.pending += 1;
         else if (status === STATUS_CONTENT_REQUESTED && postType === POST_GUEST) {
+          sec.content_requested += 1;
+        } else if (status === STATUS_CONTENT_REQUESTED && postType === POST_OTHER) {
           sec.content_requested += 1;
         }
 
