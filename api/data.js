@@ -1,49 +1,45 @@
-const SERVER_URL = "https://seatable.searchtides.com";
-
-const OM_TOKEN    = process.env.OM_API_TOKEN;
-const LBT_TOKEN   = process.env.LBT_API_TOKEN;
-const CMS_TOKEN   = process.env.CMS_API_TOKEN;
+const SERVER = "https://seatable.searchtides.com";
 
 const BTF = ["Published", "Pending", "Content Requested", "Ready for Delivery"];
 const TOP = ["Site Approved", "Negotiation"];
 const ALL_STATUSES = [...BTF, ...TOP];
-const LBT_CLIENTS = ["FanDuel", "FanDuel Casino", "FanDuel Racing", "CreditNinja"];
+const LBT_CLIENTS  = ["FanDuel", "FanDuel Casino", "FanDuel Racing", "CreditNinja"];
 const PRESS_CLIENT = "FanDuel";
 
-// ── SeaTable auth ──
-async function getAuthToken(apiToken) {
-  const res = await fetch(`${SERVER_URL}/api2/auth-token/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: apiToken })
+// ── Get base access info (uuid + jwt token) via API token ──
+async function getAccess(apiToken) {
+  const url = `${SERVER}/api/v2.1/dtable/app-access-token/`;
+  const res = await fetch(url, {
+    headers: {
+      "Authorization": `Token ${apiToken}`,
+      "Accept": "application/json"
+    }
   });
-  if (!res.ok) throw new Error(`Auth failed: ${res.status}`);
-  const data = await res.json();
-  return data.token;
+  const text = await res.text();
+  if (!res.ok) throw new Error(`getAccess ${res.status}: ${text.substring(0, 300)}`);
+  return JSON.parse(text);
 }
 
-// ── Get base info (dtable_uuid + jwt token) ──
-async function getBaseAccess(apiToken) {
-  const res = await fetch(`${SERVER_URL}/api/v2.1/dtable/app-access-token/`, {
-    headers: { "Authorization": `Token ${apiToken}` }
-  });
-  if (!res.ok) throw new Error(`Base access failed: ${res.status} ${await res.text()}`);
-  return res.json();
-}
-
-// ── List rows (paginated) ──
-async function listRows(baseInfo, tableName, viewName) {
-  const { access_token, dtable_uuid } = baseInfo;
+// ── List all rows via new API Gateway endpoint ──
+async function listRows(access, tableName, viewName) {
+  const { access_token, dtable_uuid } = access;
   let rows = [], start = 0, limit = 1000;
 
   while (true) {
-    const url = `${SERVER_URL}/dtable-server/api/v1/dtables/${dtable_uuid}/rows/?` +
-      `table_name=${encodeURIComponent(tableName)}&view_name=${encodeURIComponent(viewName)}&start=${start}&limit=${limit}`;
+    let url = `${SERVER}/api-gateway/api/v2/dtables/${dtable_uuid}/rows/?` +
+      `table_name=${encodeURIComponent(tableName)}&limit=${limit}&start=${start}&convert_keys=true`;
+    if (viewName) url += `&view_name=${encodeURIComponent(viewName)}`;
+
     const res = await fetch(url, {
-      headers: { "Authorization": `Token ${access_token}` }
+      headers: {
+        "Authorization": `Token ${access_token}`,
+        "Accept": "application/json"
+      }
     });
-    if (!res.ok) throw new Error(`listRows failed: ${res.status} ${await res.text()}`);
-    const data = await res.json();
+    const text = await res.text();
+    if (!res.ok) throw new Error(`listRows(${tableName}) ${res.status}: ${text.substring(0, 300)}`);
+
+    const data = JSON.parse(text);
     const batch = data.rows || [];
     rows = rows.concat(batch);
     if (batch.length < limit) break;
@@ -52,73 +48,98 @@ async function listRows(baseInfo, tableName, viewName) {
   return rows;
 }
 
-// ── Resolve linked column value ──
+// ── Resolve linked column → string ──
 function resolve(val) {
   if (Array.isArray(val)) val = val[0] || null;
-  if (val && typeof val === "object") val = val.display_value || val.name || null;
-  return val;
+  if (val && typeof val === "object") return val.display_value || val.name || null;
+  return val || null;
 }
 
-// ── Main handler ──
+function getCurrentProdMonth() {
+  const now = new Date();
+  return now.toLocaleString("en-US", { month: "short", year: "numeric" });
+}
+function getCurrentMonthShort() {
+  return new Date().toLocaleString("en-US", { month: "short" });
+}
+function getCurrentYear()  { return new Date().getFullYear(); }
+function getCurrentMonth() { return new Date().getMonth() + 1; }
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "s-maxage=300"); // cache 5 min on Vercel edge
+  res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
+
+  const OM_TOKEN  = process.env.OM_API_TOKEN;
+  const LBT_TOKEN = process.env.LBT_API_TOKEN;
+  const CMS_TOKEN = process.env.CMS_API_TOKEN;
+
+  if (!OM_TOKEN || !LBT_TOKEN || !CMS_TOKEN) {
+    return res.status(500).json({
+      ok: false,
+      error: `Missing env vars: ${!OM_TOKEN?"OM_API_TOKEN ":""}${!LBT_TOKEN?"LBT_API_TOKEN ":""}${!CMS_TOKEN?"CMS_API_TOKEN":""}`
+    });
+  }
 
   try {
-    const now = new Date();
-    const currentYear  = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-    const monthShort   = now.toLocaleString("en-US", { month: "short" }); // "Apr"
-    const prodMonth    = now.toLocaleString("en-US", { month: "short", year: "numeric" }); // "Apr 2026"
+    const prodMonth    = getCurrentProdMonth();
+    const monthShort   = getCurrentMonthShort();
+    const currentYear  = getCurrentYear();
+    const currentMonth = getCurrentMonth();
 
-    // ── 1. OM base (HSS) ──
-    const omAccess = await getBaseAccess(OM_TOKEN);
+    // ══════════════════════════════════════════
+    //  1. HSS BASE — OM + QUOTAS
+    // ══════════════════════════════════════════
+    const omAccess = await getAccess(OM_TOKEN);
 
     // Quotas
     const quotaRows = await listRows(omAccess, "QUOTAS", "");
     const quotas = {};
     for (const row of quotaRows) {
-      const client    = resolve(row["\uD83D\uDD39Client"] || row["Client"]);
-      const monthVal  = row["\uD83D\uDD39Month"] || row["Month"];
-      const yearVal   = row["\uD83D\uDD39Year"]  || row["Year"];
-      const quotaVal  = row["\uD83D\uDD39 LV Quota"] || row["LV Quota"];
+      const client   = resolve(row["\u{1F539}Client"] || row["Client"]);
+      const monthVal = row["\u{1F539}Month"]    || row["Month"]    || "";
+      const yearVal  = row["\u{1F539}Year"]     || row["Year"]     || "";
+      const quotaVal = row["\u{1F539} LV Quota"]|| row["LV Quota"] || 0;
       if (!client || !monthVal) continue;
-      const mOk = typeof monthVal === "string" && monthVal.trim().toLowerCase() === monthShort.toLowerCase();
+      const mOk = monthVal.trim().toLowerCase() === monthShort.toLowerCase();
       const yOk = yearVal ? String(yearVal).trim() === String(currentYear) : true;
       if (mOk && yOk) quotas[client] = parseFloat(quotaVal) || 0;
     }
 
-    // OM LV data
+    // OM LV rows
     const omRows = await listRows(omAccess, "OM", "Martina Dashboard View");
     const internal = {};
     for (const row of omRows) {
-      const client     = resolve(row["CLIENT*"]);
-      const status     = row["STATUS 1"];
-      const lv         = parseFloat(row["LV"]) || 0;
-      const prodMonthR = row["Prod Month"] || "";
-      if (prodMonthR.trim() !== prodMonth) continue;
+      const client = resolve(row["CLIENT*"]);
+      const status = row["STATUS 1"];
+      const lv     = parseFloat(row["LV"]) || 0;
+      const pm     = (row["Prod Month"] || "").trim();
+      if (pm !== prodMonth) continue;
       if (!client || !ALL_STATUSES.includes(status)) continue;
       if (!internal[client]) internal[client] = {};
       internal[client][status] = (internal[client][status] || 0) + lv;
     }
 
-    // ── 2. LBT base ──
-    const lbtAccess = await getBaseAccess(LBT_TOKEN);
+    // ══════════════════════════════════════════
+    //  2. LBT BASE
+    // ══════════════════════════════════════════
+    const lbtAccess = await getAccess(LBT_TOKEN);
     const lbtRows   = await listRows(lbtAccess, "OM", "View for dashboard");
     const external  = {};
     for (const row of lbtRows) {
-      const client     = resolve(row["CLIENT*"]);
-      const status     = row["STATUS 1"];
-      const lv         = parseFloat(row["LV"]) || 0;
-      const prodMonthR = row["Prod Month"] || "";
-      if (prodMonthR.trim() !== prodMonth) continue;
+      const client = resolve(row["CLIENT*"]);
+      const status = row["STATUS 1"];
+      const lv     = parseFloat(row["LV"]) || 0;
+      const pm     = (row["Prod Month"] || "").trim();
+      if (pm !== prodMonth) continue;
       if (!client || !LBT_CLIENTS.includes(client)) continue;
       if (status !== "Published") continue;
       external[client] = (external[client] || 0) + lv;
     }
 
-    // ── 3. CMS Master base ──
-    const cmsAccess = await getBaseAccess(CMS_TOKEN);
+    // ══════════════════════════════════════════
+    //  3. CMS MASTER BASE — Journalists (FanDuel only)
+    // ══════════════════════════════════════════
+    const cmsAccess = await getAccess(CMS_TOKEN);
     const cmsRows   = await listRows(cmsAccess, "OM", "Default View_Martina");
     let journalists = 0;
     for (const row of cmsRows) {
@@ -133,28 +154,38 @@ export default async function handler(req, res) {
       } catch(e) { continue; }
     }
 
-    // ── 4. Build response ──
+    // ══════════════════════════════════════════
+    //  4. BUILD RESPONSE
+    // ══════════════════════════════════════════
     const allClients = [...new Set([...Object.keys(internal), ...Object.keys(quotas)])].sort();
-    const result = allClients.map(client => {
-      const quota   = quotas[client] || 0;
-      const intData = internal[client] || {};
-      const extPub  = LBT_CLIENTS.includes(client) ? Math.round((external[client] || 0) * 100) / 100 : 0;
-      const journ   = client === PRESS_CLIENT ? Math.round(journalists * 100) / 100 : 0;
-      const row = { client, quota, ext_published: extPub, journalists: journ };
+
+    const clients = allClients.map(name => {
+      const quota   = quotas[name] || 0;
+      const intData = internal[name] || {};
+      const extPub  = LBT_CLIENTS.includes(name) ? Math.round((external[name] || 0) * 100) / 100 : 0;
+      const journ   = name === PRESS_CLIENT ? Math.round(journalists * 100) / 100 : 0;
+      const row     = { client: name, quota, ext_published: extPub, journalists: journ };
       for (const s of ALL_STATUSES) row[s] = Math.round((intData[s] || 0) * 100) / 100;
       return row;
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       ok: true,
-      generated: now.toISOString(),
+      generated: new Date().toISOString(),
       prod_month: prodMonth,
-      clients: result
+      debug: {
+        quotas_loaded: Object.keys(quotas).length,
+        om_rows: omRows.length,
+        lbt_rows: lbtRows.length,
+        cms_rows: cmsRows.length,
+        internal_clients: Object.keys(internal).length,
+        journalists_total: Math.round(journalists * 100) / 100
+      },
+      clients
     });
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ ok: false, error: err.message });
+  } catch(err) {
+    console.error("Dashboard API error:", err);
+    return res.status(500).json({ ok: false, error: err.message });
   }
 }
-
