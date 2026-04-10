@@ -1,10 +1,19 @@
 const SERVER = "https://seatable.searchtides.com";
 
-const BTF = ["Published", "Pending", "Content Requested", "Ready for Delivery"];
-const TOP = ["Site Approved", "Negotiation"];
-const ALL_STATUSES = [...BTF, ...TOP];
-const LBT_CLIENTS  = ["FanDuel", "FanDuel Casino", "FanDuel Racing", "CreditNinja"];
-const PRESS_CLIENT = "FanDuel";
+const OM_TABLE = "OM";
+const OM_VIEW = "Published Links_for Superfeeders Dashboard";
+
+const STATUS_PUBLISHED = "Published";
+const STATUS_PENDING = "Pending";
+const STATUS_CONTENT_REQUESTED = "Content Requested";
+const ALL_STATUSES = [STATUS_PUBLISHED, STATUS_PENDING, STATUS_CONTENT_REQUESTED];
+
+const POST_PROFOUND = "Profound Placement";
+const POST_LINK_INSERT = "Link Insert";
+const POST_GUEST = "Guest Post";
+const ALL_POST_TYPES = [POST_PROFOUND, POST_LINK_INSERT, POST_GUEST];
+
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 async function getAccess(apiToken) {
   const res = await fetch(SERVER + "/api/v2.1/dtable/app-access-token/", {
@@ -18,7 +27,7 @@ async function getAccess(apiToken) {
 async function listRows(access, tableName, viewName) {
   const base = access.dtable_server.endsWith("/") ? access.dtable_server : access.dtable_server + "/";
   const uuid = access.dtable_uuid;
-  const tok  = access.access_token;
+  const tok = access.access_token;
   let rows = [], start = 0, limit = 1000;
 
   while (true) {
@@ -46,162 +55,231 @@ function resolve(val) {
   return val || null;
 }
 
-function monthShort()   { return new Date().toLocaleString("en-US", { month: "short" }); }
-function prodMonth()    { return new Date().toLocaleString("en-US", { month: "short", year: "numeric" }); }
-function currentYear()  { return new Date().getFullYear(); }
-function currentMonth() { return new Date().getMonth() + 1; }
+function prodMonthNow() {
+  return new Date().toLocaleString("en-US", { month: "short", year: "numeric" });
+}
+
+function monthsOfYear(year) {
+  const out = [];
+  for (let mi = 0; mi < 12; mi++) {
+    out.push(MONTH_SHORT[mi] + " " + year);
+  }
+  return out;
+}
+
+/** Parse "Apr 2026" style labels */
+function parseProdMonthLabel(label) {
+  const s = String(label || "").trim();
+  const m = s.match(/^([A-Za-z]+)\s+(\d{4})$/);
+  if (!m) return null;
+  const monPart = m[1].slice(0, 3);
+  const idx = MONTH_SHORT.findIndex(function (x) {
+    return x.toLowerCase() === monPart.toLowerCase();
+  });
+  if (idx < 0) return null;
+  const y = parseInt(m[2], 10);
+  if (isNaN(y)) return null;
+  return { year: y, monthIndex: idx, label: MONTH_SHORT[idx] + " " + y };
+}
+
+function getClient(row) {
+  return resolve(row["CLIENT*"] || row["CLIENT"] || row["Client"]);
+}
+
+function getFinalUsd(row) {
+  const v = row["FINAL $"] ?? row["FINAL$"] ?? row["Final $"] ?? row["Final$"];
+  if (v == null || v === "") return 0;
+  const n = parseFloat(String(v).replace(/[^0-9.-]/g, ""));
+  return isNaN(n) ? 0 : Math.round(n * 100) / 100;
+}
+
+function getLiveLink(row) {
+  const v = row["LIVE LINK"] || row["Live Link"] || row["LIVE_LINK"];
+  const s = resolve(v) || (typeof v === "string" ? v : v == null ? "" : String(v));
+  return String(s || "").trim();
+}
+
+function rowCountsTowardSpend(status, postType) {
+  if (status === STATUS_PUBLISHED || status === STATUS_PENDING) return true;
+  if (status === STATUS_CONTENT_REQUESTED && postType === POST_GUEST) return true;
+  return false;
+}
+
+function emptySection() {
+  return { published: 0, pending: 0, content_requested: 0 };
+}
+
+function parseBudgetJson(raw) {
+  if (!raw || !String(raw).trim()) return {};
+  try {
+    const o = JSON.parse(String(raw));
+    return o && typeof o === "object" ? o : {};
+  } catch (e) {
+    return {};
+  }
+}
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
 
-  const OM_TOKEN        = process.env.OM_API_TOKEN;
-  const LBT_TOKEN       = process.env.LBT_API_TOKEN;
-  const CMS_TOKEN       = process.env.CMS_API_TOKEN;
-  const REPORTING_TOKEN = process.env.REPORTING_API_TOKEN;
+  const TOKEN = process.env.SUPERFEEDER_API_TOKEN;
+  const BUDGET_JSON = process.env.SUPERFEEDER_MONTHLY_BUDGET_JSON || "";
 
-  if (!OM_TOKEN || !LBT_TOKEN || !CMS_TOKEN || !REPORTING_TOKEN) {
-    const missing = [
-      !OM_TOKEN && "OM_API_TOKEN",
-      !LBT_TOKEN && "LBT_API_TOKEN",
-      !CMS_TOKEN && "CMS_API_TOKEN",
-      !REPORTING_TOKEN && "REPORTING_API_TOKEN"
-    ].filter(Boolean).join(", ");
-    return res.status(500).json({ ok: false, error: "Missing env vars: " + missing });
+  if (!TOKEN) {
+    return res.status(500).json({ ok: false, error: "Missing env var: SUPERFEEDER_API_TOKEN" });
   }
 
+  const YEAR = 2026;
+  const PM_CURRENT = prodMonthNow();
+  const months = monthsOfYear(YEAR);
+  const budgetMap = parseBudgetJson(BUDGET_JSON);
+
   try {
-    const PM    = prodMonth();
-    const MS    = monthShort();
-    const CY    = currentYear();
-    const CM    = currentMonth();
+    const access = await getAccess(TOKEN);
+    const rows = await listRows(access, OM_TABLE, OM_VIEW);
 
-    // ── Auth all 4 bases in parallel ──
-    const [omAccess, lbtAccess, cmsAccess, reportingAccess] = await Promise.all([
-      getAccess(OM_TOKEN),
-      getAccess(LBT_TOKEN),
-      getAccess(CMS_TOKEN),
-      getAccess(REPORTING_TOKEN)
-    ]);
+    const publishedCount = {};
+    const publishedTiles = [];
+    const clientsInYear = new Set();
 
-    // ── Fetch all data in parallel ──
-    const [quotaRows, omRows, lbtRows, cmsRows, reportingRows] = await Promise.all([
-      listRows(omAccess, "QUOTAS", ""),
-      listRows(omAccess, "OM", "Martina Dashboard View"),
-      listRows(lbtAccess, "OM", "View for dashboard"),
-      listRows(cmsAccess, "OM", "Default View_Martina"),
-      listRows(reportingAccess, "QUOTAS", "")
-    ]);
+    const currentClientsSet = new Set();
+    const sectionTemplate = function () {
+      const o = {};
+      o[POST_PROFOUND] = emptySection();
+      o[POST_LINK_INSERT] = emptySection();
+      o[POST_GUEST] = emptySection();
+      return o;
+    };
 
-    // ── 1. Internal quotas (HSS QUOTAS) ──
-    const quotas = {};
-    for (const row of quotaRows) {
-      const client   = resolve(row["\u{1F539}Client"] || row["Client"]);
-      const monthVal = row["\u{1F539}Month"]     || row["Month"]    || "";
-      const yearVal  = row["\u{1F539}Year"]      || row["Year"]     || "";
-      const quotaVal = row["\u{1F539} LV Quota"] || row["LV Quota"] || 0;
-      if (!client || !monthVal) continue;
-      const mOk = monthVal.trim().toLowerCase() === MS.toLowerCase();
-      const yOk = yearVal ? String(yearVal).trim() === String(CY) : true;
-      if (mOk && yOk) quotas[client] = parseFloat(quotaVal) || 0;
-    }
+    const currentSections = {};
+    const spendByClient = {};
 
-    // ── 2. Internal OM LV data ──
-    const internal = {};
-    for (const row of omRows) {
-      const client = resolve(row["CLIENT*"]);
+    for (const row of rows) {
+      const client = getClient(row);
+      const pmRaw = row["Prod Month"];
+      const pm = (pmRaw == null ? "" : String(pmRaw)).trim();
+      const parsed = parseProdMonthLabel(pm);
       const status = row["STATUS 1"];
-      const lv     = parseFloat(row["LV"]) || 0;
-      const pm     = (row["Prod Month"] || "").trim();
-      if (pm !== PM) continue;
-      if (!client || !ALL_STATUSES.includes(status)) continue;
-      if (!internal[client]) internal[client] = {};
-      internal[client][status] = (internal[client][status] || 0) + lv;
-    }
+      const postTypeRaw = resolve(row["Type of Post"] || row["Type Of Post"]);
+      const postType = postTypeRaw == null ? "" : String(postTypeRaw).trim();
 
-    // ── 3. External LBT ──
-    const external = {};
-    for (const row of lbtRows) {
-      const client = resolve(row["CLIENT*"]);
-      const status = row["STATUS 1"];
-      const lv     = parseFloat(row["LV"]) || 0;
-      const pm     = (row["Prod Month"] || "").trim();
-      if (pm !== PM) continue;
-      if (!client || !LBT_CLIENTS.includes(client)) continue;
-      if (status !== "Published") continue;
-      external[client] = (external[client] || 0) + lv;
-    }
+      if (!client || !pm) continue;
+      if (!ALL_STATUSES.includes(status)) continue;
+      if (!ALL_POST_TYPES.includes(postType)) continue;
 
-    // ── 4. Journalists / CMS Master ──
-    let journalists = 0;
-    for (const row of cmsRows) {
-      const dateVal = row["Live Link Date"] || "";
-      const lv      = parseFloat(row["LV"]) || 0;
-      if (!dateVal) continue;
-      try {
-        const d = new Date(String(dateVal).substring(0, 10));
-        if (d.getFullYear() === CY && d.getMonth() + 1 === CM) journalists += lv;
-      } catch(e) { continue; }
-    }
+      if (parsed && parsed.year === YEAR) clientsInYear.add(client);
 
-    // ── 5. Company quotas (Reporting QUOTAS) ──
-    const companyQuotas = {};
-    const reportingDebug = []; // capture first 5 rows for debugging
-    for (const row of reportingRows) {
-      // Try all possible column name variants
-      const client   = resolve(row["Client"] || row["client"] || null);
-      const monthVal = row["Month"] || row["month"] || "";
-      const quotaVal = row["Monthly LV Quota"] || row["LV Quota"] || 0;
+      if (parsed && parsed.year === YEAR && status === STATUS_PUBLISHED) {
+        if (!publishedCount[client]) publishedCount[client] = {};
+        const mk = parsed.label;
+        publishedCount[client][mk] = (publishedCount[client][mk] || 0) + 1;
 
-      if (reportingDebug.length < 3) {
-        reportingDebug.push({
-          raw_keys: Object.keys(row).slice(0, 8),
-          client, monthVal, quotaVal
+        const link = getLiveLink(row);
+        publishedTiles.push({
+          client: client,
+          prod_month: mk,
+          live_link: link,
+          type_of_post: postType,
+          final_usd: getFinalUsd(row)
         });
       }
 
-      if (!client || !monthVal) continue;
-      if (monthVal.trim().toLowerCase() === MS.toLowerCase()) {
-        companyQuotas[client] = parseFloat(quotaVal) || 0;
+      if (pm === PM_CURRENT) {
+        currentClientsSet.add(client);
+        if (!currentSections[client]) currentSections[client] = sectionTemplate();
+        const sec = currentSections[client][postType];
+        if (status === STATUS_PUBLISHED) sec.published += 1;
+        else if (status === STATUS_PENDING) sec.pending += 1;
+        else if (status === STATUS_CONTENT_REQUESTED && postType === POST_GUEST) {
+          sec.content_requested += 1;
+        }
+
+        if (rowCountsTowardSpend(status, postType)) {
+          const amt = getFinalUsd(row);
+          if (!spendByClient[client]) spendByClient[client] = 0;
+          spendByClient[client] = Math.round((spendByClient[client] + amt) * 100) / 100;
+        }
       }
     }
 
-    // ── 6. Build response ──
-    const allClients = [...new Set([...Object.keys(internal), ...Object.keys(quotas)])].sort();
-
-    const clients = allClients.map(name => {
-      const row = {
-        client:        name,
-        quota:         quotas[name] || 0,
-        company_quota: companyQuotas[name] || 0,
-        ext_published: LBT_CLIENTS.includes(name) ? Math.round((external[name] || 0) * 100) / 100 : 0,
-        journalists:   name === PRESS_CLIENT ? Math.round(journalists * 100) / 100 : 0
-      };
-      const intData = internal[name] || {};
-      for (const s of ALL_STATUSES) row[s] = Math.round((intData[s] || 0) * 100) / 100;
-      return row;
+    publishedTiles.sort(function (a, b) {
+      const pa = parseProdMonthLabel(a.prod_month);
+      const pb = parseProdMonthLabel(b.prod_month);
+      if (pa && pb && (pa.year !== pb.year || pa.monthIndex !== pb.monthIndex)) {
+        if (pa.year !== pb.year) return pa.year - pb.year;
+        return pa.monthIndex - pb.monthIndex;
+      }
+      if (a.client !== b.client) return a.client.localeCompare(b.client);
+      return (a.live_link || "").localeCompare(b.live_link || "");
     });
+
+    for (const c of Object.keys(budgetMap)) {
+      const m = budgetMap[c];
+      if (m && m[PM_CURRENT] != null && String(m[PM_CURRENT]).trim() !== "") {
+        currentClientsSet.add(c);
+      }
+    }
+
+    const clientsSorted = [...new Set([
+      ...clientsInYear,
+      ...Object.keys(publishedCount),
+      ...Object.keys(currentSections),
+      ...Object.keys(spendByClient)
+    ])].sort();
+
+    const yearMatrix = clientsSorted.map(function (name) {
+      const byMonth = {};
+      for (const mk of months) {
+        byMonth[mk] = (publishedCount[name] && publishedCount[name][mk]) || 0;
+      }
+      return { client: name, byMonth: byMonth };
+    });
+
+    const currentMonthList = [...currentClientsSet].sort();
+    const currentMonthPayload = currentMonthList.map(function (name) {
+      const sections = currentSections[name] || sectionTemplate();
+      const budgetRaw = budgetMap[name] && budgetMap[name][PM_CURRENT];
+      const budget = budgetRaw == null || budgetRaw === "" ? null : parseFloat(budgetRaw);
+      const budgetNum = budget != null && !isNaN(budget) ? Math.round(budget * 100) / 100 : null;
+      const spend = spendByClient[name] || 0;
+      let remaining = null;
+      if (budgetNum != null) remaining = Math.round((budgetNum - spend) * 100) / 100;
+
+      return {
+        client: name,
+        budget: budgetNum,
+        spend: spend,
+        remaining: remaining,
+        sections: {
+          profound: sections[POST_PROFOUND],
+          linkInsert: sections[POST_LINK_INSERT],
+          guestPost: sections[POST_GUEST]
+        }
+      };
+    });
+
+    const debugSample = rows.length ? {
+      keys: Object.keys(rows[0]).filter(function (k) {
+        return /CLIENT|Prod|STATUS|Type|FINAL|LIVE/i.test(k);
+      }).slice(0, 12),
+      row_count: rows.length
+    } : { row_count: 0 };
 
     return res.status(200).json({
       ok: true,
       generated: new Date().toISOString(),
-      prod_month: PM,
-      debug: {
-        quotas_loaded: Object.keys(quotas).length,
-        om_rows: omRows.length,
-        lbt_rows: lbtRows.length,
-        cms_rows: cmsRows.length,
-        internal_clients: Object.keys(internal).length,
-        company_quotas_loaded: Object.keys(companyQuotas).length,
-        company_quotas_clients: Object.keys(companyQuotas),
-        reporting_sample: reportingDebug,
-        journalists_total: Math.round(journalists * 100) / 100
-      },
-      clients
+      year: YEAR,
+      current_prod_month: PM_CURRENT,
+      months: months,
+      yearMatrix: yearMatrix,
+      publishedTiles: publishedTiles,
+      currentMonth: currentMonthPayload,
+      debug: debugSample
     });
 
-  } catch(err) {
-    console.error("Dashboard API error:", err);
+  } catch (err) {
+    console.error("Superfeeder API error:", err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 }
