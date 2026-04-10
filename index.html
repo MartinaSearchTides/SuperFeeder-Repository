@@ -156,6 +156,7 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
 .row-prof td:first-child { box-shadow: inset 3px 0 0 var(--teal); }
 .row-ins td:first-child { box-shadow: inset 3px 0 0 var(--purple); }
 .row-guest td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
+.row-other td:first-child { box-shadow: inset 3px 0 0 var(--muted2); }
 .pt-footnote { font-size: 11px; color: var(--muted); font-family: var(--fs); margin-top: 10px; line-height: 1.45; }
 
 .empty-state { padding: 2rem; text-align: center; color: var(--muted); font-family: var(--fs); font-size: 14px; line-height: 1.5; border: 1px dashed var(--border2); border-radius: 10px; background: var(--surface); }
@@ -373,7 +374,12 @@ function budgetCell(lbl, innerHtml, valClass) {
   return '<div class="budget-cell"><div class="bc-lbl">' + esc(lbl) + '</div><div class="bc-val' + vc + '">' + innerHtml + "</div></div>";
 }
 
-function postTypeTable(prof, ins, guest) {
+function sectionHasActivity(s) {
+  return s && (s.published > 0 || s.pending > 0 || s.content_requested > 0);
+}
+
+function postTypeTable(prof, ins, guest, other) {
+  var oth = other || { published: 0, pending: 0, content_requested: 0 };
   var html = '<div class="sf-body">';
   html += '<div class="pt-wrap"><table class="pt-table">';
   html += "<thead><tr>";
@@ -385,6 +391,9 @@ function postTypeTable(prof, ins, guest) {
   html += ptRow("Profound Placement", "row-prof", prof, false);
   html += ptRow("Link insert", "row-ins", ins, false);
   html += ptRow("Guest post", "row-guest", guest, true);
+  if (sectionHasActivity(oth)) {
+    html += ptRow("Other", "row-other", oth, false);
+  }
   html += "</tbody></table></div>";
   html += "<p class=\"pt-footnote\">Content requested is only tracked for guest posts. Budget math matches the API (FINAL $).</p>";
   html += "</div>";
@@ -419,6 +428,7 @@ function renderMonth(payload) {
     var prof = sec.profound || { published: 0, pending: 0, content_requested: 0 };
     var ins = sec.linkInsert || { published: 0, pending: 0, content_requested: 0 };
     var guest = sec.guestPost || { published: 0, pending: 0, content_requested: 0 };
+    var other = sec.other || { published: 0, pending: 0, content_requested: 0 };
 
     var bud = c.budget;
     var spend = c.spend;
@@ -434,7 +444,7 @@ function renderMonth(payload) {
     html += budgetCell("Remaining", rem == null ? '<span class="bc-muted">N/A</span>' : "$" + fmtMoney(rem), remClass);
     html += "</div>";
 
-    html += postTypeTable(prof, ins, guest);
+    html += postTypeTable(prof, ins, guest, other);
     html += "</div>";
   }
   grid.innerHTML = html;

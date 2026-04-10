@@ -11,7 +11,8 @@ const ALL_STATUSES = [STATUS_PUBLISHED, STATUS_PENDING, STATUS_CONTENT_REQUESTED
 const POST_PROFOUND = "Profound Placement";
 const POST_LINK_INSERT = "Link Insert";
 const POST_GUEST = "Guest Post";
-const ALL_POST_TYPES = [POST_PROFOUND, POST_LINK_INSERT, POST_GUEST];
+const POST_OTHER = "Other";
+const ALL_POST_TYPES = [POST_PROFOUND, POST_LINK_INSERT, POST_GUEST, POST_OTHER];
 
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -86,6 +87,41 @@ function getClient(row) {
   return resolve(row["CLIENT*"] || row["CLIENT"] || row["Client"]);
 }
 
+function getStatusCanonical(row) {
+  const v = row["STATUS 1"];
+  const r = resolve(v);
+  const raw = r != null ? r : v;
+  const s = raw == null ? "" : String(raw).trim();
+  if (!s) return null;
+  const low = s.toLowerCase();
+  for (const st of ALL_STATUSES) {
+    if (st.toLowerCase() === low) return st;
+  }
+  return null;
+}
+
+function getPostTypeCanonical(row) {
+  const keys = ["Type of Post", "Type Of Post", "TYPE OF POST", "Type of post"];
+  let raw = null;
+  for (let i = 0; i < keys.length; i++) {
+    if (row[keys[i]] != null && row[keys[i]] !== "") {
+      raw = row[keys[i]];
+      break;
+    }
+  }
+  const rr = resolve(raw);
+  const s = (rr != null ? String(rr) : raw == null ? "" : String(raw)).trim();
+  if (!s) return POST_OTHER;
+  const norm = s.toLowerCase().replace(/\s+/g, " ");
+  if (norm === POST_PROFOUND.toLowerCase()) return POST_PROFOUND;
+  if (norm === POST_LINK_INSERT.toLowerCase()) return POST_LINK_INSERT;
+  if (norm === POST_GUEST.toLowerCase()) return POST_GUEST;
+  if (norm.includes("guest")) return POST_GUEST;
+  if (norm.includes("link") && norm.includes("insert")) return POST_LINK_INSERT;
+  if (norm.includes("profound")) return POST_PROFOUND;
+  return POST_OTHER;
+}
+
 function getFinalUsd(row) {
   const v = row["FINAL $"] ?? row["FINAL$"] ?? row["Final $"] ?? row["Final$"];
   if (v == null || v === "") return 0;
@@ -149,6 +185,7 @@ export default async function handler(req, res) {
       o[POST_PROFOUND] = emptySection();
       o[POST_LINK_INSERT] = emptySection();
       o[POST_GUEST] = emptySection();
+      o[POST_OTHER] = emptySection();
       return o;
     };
 
@@ -158,15 +195,13 @@ export default async function handler(req, res) {
     for (const row of rows) {
       const client = getClient(row);
       const pmRaw = row["Prod Month"];
-      const pm = (pmRaw == null ? "" : String(pmRaw)).trim();
+      const pm = (pmRaw == null ? "" : String(resolve(pmRaw) || pmRaw)).trim();
       const parsed = parseProdMonthLabel(pm);
-      const status = row["STATUS 1"];
-      const postTypeRaw = resolve(row["Type of Post"] || row["Type Of Post"]);
-      const postType = postTypeRaw == null ? "" : String(postTypeRaw).trim();
+      const status = getStatusCanonical(row);
+      const postType = getPostTypeCanonical(row);
 
       if (!client || !pm) continue;
-      if (!ALL_STATUSES.includes(status)) continue;
-      if (!ALL_POST_TYPES.includes(postType)) continue;
+      if (!status) continue;
 
       if (parsed && parsed.year === YEAR) clientsInYear.add(client);
 
@@ -254,7 +289,8 @@ export default async function handler(req, res) {
         sections: {
           profound: sections[POST_PROFOUND],
           linkInsert: sections[POST_LINK_INSERT],
-          guestPost: sections[POST_GUEST]
+          guestPost: sections[POST_GUEST],
+          other: sections[POST_OTHER]
         }
       };
     });
