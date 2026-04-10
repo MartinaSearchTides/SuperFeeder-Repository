@@ -8,36 +8,34 @@ const PRESS_CLIENT = "FanDuel";
 
 // ── Get base access info ──
 async function getAccess(apiToken) {
-  const url = `${SERVER}/api/v2.1/dtable/app-access-token/`;
+  const url = SERVER + "/api/v2.1/dtable/app-access-token/";
   const res = await fetch(url, {
-    headers: { "Authorization": `Token ${apiToken}`, "Accept": "application/json" }
+    headers: { "Authorization": "Token " + apiToken, "Accept": "application/json" }
   });
   const text = await res.text();
-  if (!res.ok) throw new Error(`getAccess ${res.status}: ${text.substring(0, 300)}`);
+  if (!res.ok) throw new Error("getAccess " + res.status + ": " + text.substring(0, 300));
   return JSON.parse(text);
 }
 
 // ── List all rows via API Gateway ──
-// dtable_server is e.g. "https://seatable.searchtides.com/api-gateway/"
-// endpoint: {dtable_server}api/v2/dtables/{uuid}/rows/
 async function listRows(access, tableName, viewName) {
   const { access_token, dtable_uuid, dtable_server } = access;
-
-  // Ensure dtable_server ends with /
   const base = dtable_server.endsWith("/") ? dtable_server : dtable_server + "/";
 
   let rows = [], start = 0, limit = 1000;
 
   while (true) {
-    let url = `${base}api/v2/dtables/${dtable_uuid}/rows/?` +
-      `table_name=${encodeURIComponent(tableName)}&limit=${limit}&start=${start}&convert_keys=true`;
-    if (viewName) url += `&view_name=${encodeURIComponent(viewName)}`;
+    let url = base + "api/v2/dtables/" + dtable_uuid + "/rows/?" +
+      "table_name=" + encodeURIComponent(tableName) + "&limit=" + limit + "&start=" + start + "&convert_keys=true";
+    if (viewName && viewName.trim() !== "") {
+      url += "&view_name=" + encodeURIComponent(viewName);
+    }
 
     const res = await fetch(url, {
-      headers: { "Authorization": `Token ${access_token}`, "Accept": "application/json" }
+      headers: { "Authorization": "Token " + access_token, "Accept": "application/json" }
     });
     const text = await res.text();
-    if (!res.ok) throw new Error(`listRows(${tableName}) ${res.status}: ${text.substring(0, 300)}`);
+    if (!res.ok) throw new Error("listRows(" + tableName + (viewName ? "/" + viewName : "") + ") " + res.status + ": " + text.substring(0, 300));
 
     const data = JSON.parse(text);
     const batch = data.rows || [];
@@ -88,7 +86,8 @@ export default async function handler(req, res) {
     // ══════════════════════════════════════════
     //  1. HSS BASE — OM + QUOTAS
     // ══════════════════════════════════════════
-    const omAccess = await getAccess(OM_TOKEN);
+    let omAccess;
+    try { omAccess = await getAccess(OM_TOKEN); } catch(e) { throw new Error("HSS auth failed: " + e.message); }
 
     // Quotas
     const quotaRows = await listRows(omAccess, "QUOTAS", "");
@@ -121,7 +120,8 @@ export default async function handler(req, res) {
     // ══════════════════════════════════════════
     //  2. LBT BASE
     // ══════════════════════════════════════════
-    const lbtAccess = await getAccess(LBT_TOKEN);
+    let lbtAccess;
+    try { lbtAccess = await getAccess(LBT_TOKEN); } catch(e) { throw new Error("LBT auth failed: " + e.message); }
     const lbtRows   = await listRows(lbtAccess, "OM", "View for dashboard");
     const external  = {};
     for (const row of lbtRows) {
@@ -138,7 +138,8 @@ export default async function handler(req, res) {
     // ══════════════════════════════════════════
     //  3. CMS MASTER BASE — Journalists (FanDuel only)
     // ══════════════════════════════════════════
-    const cmsAccess = await getAccess(CMS_TOKEN);
+    let cmsAccess;
+    try { cmsAccess = await getAccess(CMS_TOKEN); } catch(e) { throw new Error("CMS auth failed: " + e.message); }
     const cmsRows   = await listRows(cmsAccess, "OM", "Default View_Martina");
     let journalists = 0;
     for (const row of cmsRows) {
@@ -156,7 +157,8 @@ export default async function handler(req, res) {
     // ══════════════════════════════════════════
     //  4. REPORTING BASE — Company quotas
     // ══════════════════════════════════════════
-    const reportingAccess = await getAccess(REPORTING_TOKEN);
+    let reportingAccess;
+    try { reportingAccess = await getAccess(REPORTING_TOKEN); } catch(e) { throw new Error("REPORTING auth failed: " + e.message); }
     const reportingRows   = await listRows(reportingAccess, "QUOTAS", "");
     const companyQuotas   = {};
     for (const row of reportingRows) {
