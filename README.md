@@ -85,3 +85,7 @@ Relevant columns: `CLIENT*`, `Prod Month`, `STATUS 1`, `Type of Post`, `LIVE LIN
 - The API response is cached about **5 minutes** (`s-maxage=300`) to reduce SeaTable load.  
 - Open `/api/data` in the browser to inspect JSON and the `debug` field if columns do not match.  
 - Keep tokens out of git; store them only in Vercel environment variables.
+
+### Search engines and bots (no indexing)
+
+The project is configured to discourage indexing: `robots.txt` at the site root (`Disallow: /`), strict `noindex` / `nofollow` meta tags in `index.html`, and **`X-Robots-Tag`** on all responses via [`vercel.json`](vercel.json). This is not a cryptographic guarantee; a password or Vercel deployment protection adds stronger access control if you need it.
