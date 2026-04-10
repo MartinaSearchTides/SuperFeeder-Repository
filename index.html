@@ -26,6 +26,8 @@
   --teal-bdr:   rgba(14,158,128,0.22);
   --teal-dim:   rgba(14,158,128,0.08);
   --amber:      #c47a1a;
+  --amber-dim:  rgba(196,122,26,0.08);
+  --amber-bdr:  rgba(196,122,26,0.22);
   --sf-accent:  #0f766e;
   --sf-accent-dim: rgba(15,118,110,0.12);
   --red:    #c0392b;
@@ -85,9 +87,33 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
 .year-split { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border2); }
 .link-grid-title { font-family: var(--fd); font-size: 16px; font-weight: 700; margin: 0 0 0.35rem; }
 .link-grid-sub { font-size: 12px; color: var(--muted); font-family: var(--fs); margin-bottom: 1rem; }
-.link-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
-.link-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; transition: background 0.15s, border-color 0.15s, box-shadow 0.15s; }
-.link-card:hover { background: var(--surface2); border-color: var(--teal-bdr); box-shadow: 0 4px 14px rgba(0,0,0,0.04); }
+
+.link-groups { display: flex; flex-direction: column; gap: 0; }
+.month-band { border-radius: 12px; overflow: hidden; margin-bottom: 1.5rem; border: 1px solid var(--border2); background: var(--surface); }
+.month-band-h { padding: 14px 18px; font-family: var(--fd); font-size: 17px; font-weight: 700; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-bottom: 1px solid var(--border2); }
+.month-band-h .pill-current { font-size: 10px; font-family: var(--fs); font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; padding: 4px 10px; border-radius: 4px; background: var(--sf-accent); color: #fff; }
+.month-band-body { padding: 16px 18px 8px; }
+.mb-tone-0 .month-band-h { background: rgba(15,118,110,0.14); color: var(--text); border-bottom-color: rgba(15,118,110,0.25); }
+.mb-tone-0 .month-band-body { background: rgba(15,118,110,0.06); }
+.mb-tone-1 .month-band-h { background: rgba(91,77,224,0.12); border-bottom-color: var(--purple-bdr); }
+.mb-tone-1 .month-band-body { background: var(--purple-dim); }
+.mb-tone-2 .month-band-h { background: rgba(14,158,128,0.14); border-bottom-color: var(--teal-bdr); }
+.mb-tone-2 .month-band-body { background: var(--teal-dim); }
+.mb-tone-3 .month-band-h { background: rgba(196,122,26,0.14); border-bottom-color: var(--amber-bdr); }
+.mb-tone-3 .month-band-body { background: var(--amber-dim); }
+.mb-tone-4 .month-band-h { background: rgba(26,138,82,0.12); border-bottom-color: rgba(26,138,82,0.28); }
+.mb-tone-4 .month-band-body { background: rgba(26,138,82,0.06); }
+.mb-tone-5 .month-band-h { background: var(--surface3); color: var(--text); }
+.mb-tone-5 .month-band-body { background: var(--surface2); }
+
+.client-link-block { margin-bottom: 1.25rem; }
+.client-link-block:last-child { margin-bottom: 8px; }
+.client-link-h { font-size: 13px; font-weight: 600; font-family: var(--fs); color: var(--text); margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border2); }
+.client-link-count { color: var(--muted); font-weight: 500; font-size: 12px; margin-left: 6px; }
+
+.link-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.link-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; transition: background 0.15s, border-color 0.15s, box-shadow 0.15s; }
+.link-card:hover { background: var(--surface); border-color: var(--teal-bdr); box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
 .link-tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .tag { font-size: 10px; font-family: var(--fs); font-weight: 500; letter-spacing: 0.02em; padding: 4px 10px; border-radius: 4px; background: var(--surface3); border: 1px solid var(--border2); color: var(--muted2); }
 .tag-client { color: var(--teal); border-color: var(--teal-bdr); background: var(--teal-dim); }
@@ -95,7 +121,7 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
 .link-card a.url:hover { text-decoration: underline; }
 .link-domain { font-size: 11px; color: var(--muted); font-family: var(--fm); }
 
-.clients-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 20px; }
+.clients-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-content: start; }
 .sf-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
 .sf-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.06); }
 .sf-card-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); border-left: 4px solid var(--sf-accent); }
@@ -127,6 +153,9 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
 
 .empty-state { padding: 2rem; text-align: center; color: var(--muted); font-family: var(--fs); font-size: 14px; line-height: 1.5; border: 1px dashed var(--border2); border-radius: 10px; background: var(--surface); }
 
+@media (max-width: 900px) {
+  .clients-grid { grid-template-columns: 1fr; }
+}
 @media (max-width: 700px) {
   .budget-row-cards { grid-template-columns: 1fr; }
   .pt-table thead th:nth-child(4), .pt-table tbody td:nth-child(4) { min-width: 7rem; }
@@ -169,7 +198,7 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
     <div class="year-split">
       <h2 class="link-grid-title">Published links</h2>
       <p class="link-grid-sub" id="link-grid-sub"></p>
-      <div class="link-grid" id="link-grid"></div>
+      <div class="link-groups" id="link-grid"></div>
     </div>
   </div>
   <div class="tab-content" id="tab-month">
@@ -244,35 +273,94 @@ function renderYearTable(payload) {
   host.innerHTML = html;
 }
 
+function monthIndexInYear(label, monthsOrder) {
+  var idx = monthsOrder.indexOf(label);
+  return idx >= 0 ? idx : 99;
+}
+
+function sortMonthsForLinks(monthsPresent, currentProdMonth, monthsOrder) {
+  return monthsPresent.slice().sort(function (a, b) {
+    var aCur = a === currentProdMonth ? 0 : 1;
+    var bCur = b === currentProdMonth ? 0 : 1;
+    if (aCur !== bCur) return aCur - bCur;
+    return monthIndexInYear(a, monthsOrder) - monthIndexInYear(b, monthsOrder);
+  });
+}
+
+function linkCardHtml(t) {
+  var url = safeUrl(t.live_link);
+  var h = displayHost(url);
+  var html = '<div class="link-card">';
+  html += '<div class="link-tags">';
+  if (t.type_of_post) html += '<span class="tag">' + esc(t.type_of_post) + "</span>";
+  html += "</div>";
+  if (url) {
+    html += '<a class="url" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(url) + "</a>";
+    if (h) html += '<div class="link-domain">' + esc(h) + "</div>";
+  } else {
+    html += '<div class="link-domain">No LIVE LINK on row</div>';
+  }
+  html += "</div>";
+  return html;
+}
+
 function renderLinkGrid(payload) {
-  var grid = document.getElementById("link-grid");
+  var host = document.getElementById("link-grid");
   var sub = document.getElementById("link-grid-sub");
   var tiles = payload.publishedTiles || [];
-  if (sub) sub.textContent = tiles.length ? tiles.length + " articles with status Published in 2026." : "";
+  var monthsOrder = payload.months || [];
+  var cur = payload.current_prod_month || "";
+
+  if (sub) {
+    sub.textContent = tiles.length
+      ? tiles.length + " published articles in 2026. Grouped by month (current first), then by client. Each month uses a different band color."
+      : "";
+  }
   if (!tiles.length) {
-    grid.innerHTML = '<div class="empty-state">No published rows for 2026 yet.</div>';
+    host.innerHTML = '<div class="empty-state">No published rows for 2026 yet.</div>';
     return;
   }
-  var html = "";
+
+  var byMonth = {};
   for (var i = 0; i < tiles.length; i++) {
     var t = tiles[i];
-    var url = safeUrl(t.live_link);
-    var host = displayHost(url);
-    html += '<div class="link-card">';
-    html += '<div class="link-tags">';
-    html += '<span class="tag">' + esc(t.prod_month || "") + "</span>";
-    html += '<span class="tag tag-client">' + esc(t.client || "") + "</span>";
-    if (t.type_of_post) html += '<span class="tag">' + esc(t.type_of_post) + "</span>";
-    html += "</div>";
-    if (url) {
-      html += '<a class="url" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(url) + "</a>";
-      if (host) html += '<div class="link-domain">' + esc(host) + "</div>";
-    } else {
-      html += '<div class="link-domain">No LIVE LINK on row</div>';
-    }
-    html += "</div>";
+    var m = (t.prod_month || "").trim() || "Unknown";
+    var cl = (t.client || "").trim() || "Unknown";
+    if (!byMonth[m]) byMonth[m] = {};
+    if (!byMonth[m][cl]) byMonth[m][cl] = [];
+    byMonth[m][cl].push(t);
   }
-  grid.innerHTML = html;
+
+  var sortedMonths = sortMonthsForLinks(Object.keys(byMonth), cur, monthsOrder);
+  var out = "";
+
+  for (var mi = 0; mi < sortedMonths.length; mi++) {
+    var monthLabel = sortedMonths[mi];
+    var toneN = monthIndexInYear(monthLabel, monthsOrder) % 6;
+    var isCur = monthLabel === cur;
+    out += '<section class="month-band mb-tone-' + toneN + '">';
+    out += '<div class="month-band-h">' + esc(monthLabel);
+    if (isCur) out += '<span class="pill-current">Current month</span>';
+    out += "</div><div class=\"month-band-body\">";
+
+    var clientsMap = byMonth[monthLabel];
+    var clientNames = Object.keys(clientsMap).sort(function (a, b) {
+      return a.localeCompare(b);
+    });
+    for (var ci = 0; ci < clientNames.length; ci++) {
+      var cname = clientNames[ci];
+      var list = clientsMap[cname];
+      out += '<div class="client-link-block">';
+      out += '<div class="client-link-h">' + esc(cname) + '<span class="client-link-count">(' + list.length + ")</span></div>";
+      out += '<div class="link-grid">';
+      for (var ti = 0; ti < list.length; ti++) {
+        out += linkCardHtml(list[ti]);
+      }
+      out += "</div></div>";
+    }
+    out += "</div></section>";
+  }
+  host.innerHTML = out;
 }
 
 function budgetCell(lbl, innerHtml, valClass) {
