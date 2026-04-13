@@ -22,12 +22,14 @@ In Vercel → Project → Settings → Environment Variables:
 | Name | Description |
 |------|-------------|
 | `SUPERFEEDER_API_TOKEN` | SeaTable API token for the Superfeeders base |
-| `SUPERFEEDER_MONTHLY_BUDGET_JSON` | Optional. JSON map of monthly budgets per client (see below). **You can skip this** until you have numbers. |
+| `SUPERFEEDER_MONTHLY_BUDGET_JSON` | Optional. **Monthly budgets live only here (Vercel), not in SeaTable.** JSON map per client / month (see below). |
 | `SUPERFEEDER_TIMEZONE` | Optional. IANA zone for “current production month” (default `Europe/Prague`). Use e.g. `America/New_York` if your team aligns months to US Eastern. |
 
 After adding or changing variables, **Redeploy** the project.
 
 ### Monthly budget JSON (how to create it)
+
+**Budgets are configured only on Vercel** (this env var). SeaTable holds **spend** (`FINAL $`) and pipeline data; it does not store the monthly budget cap. Everyone who loads the dashboard sees the same numbers from this JSON until you change the variable and redeploy.
 
 **You do not need this variable for the dashboard to run.** If it is missing, the **This month** tab still shows pipeline counts; budget fields show “Not set” / “N/A”.
 
@@ -39,7 +41,7 @@ When you are ready:
 4. **Value:** paste a valid JSON object (see examples below). Use **Production** (and Preview if you want).
 5. Save, then **Deployments** → **…** on the latest deployment → **Redeploy**.
 
-**Shape:** outer keys = **client name exactly as in SeaTable** (`CLIENT*`). Inner keys = **month label exactly as in `Prod Month`** (e.g. `Apr 2026`). Values = **number** (monthly budget in dollars, no `$`).
+**Shape:** outer keys = **client name** matching OM **`CLIENT*`** (and your ACTIVE Clients list). Inner keys = **month label** matching **`Prod Month`** in OM (e.g. `Apr 2026`). Values = **number** (monthly budget in dollars, no `$`).
 
 **Minimal “placeholder”** (no budgets yet, same as omitting the variable):
 

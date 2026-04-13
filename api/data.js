@@ -327,6 +327,7 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
 
   const TOKEN = process.env.SUPERFEEDER_API_TOKEN;
+  /** Monthly budget caps: Vercel env only (not SeaTable). Spend still from OM FINAL $. */
   const BUDGET_JSON = process.env.SUPERFEEDER_MONTHLY_BUDGET_JSON || "";
 
   if (!TOKEN) {
