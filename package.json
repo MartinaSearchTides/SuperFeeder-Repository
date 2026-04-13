@@ -1,5 +1,9 @@
 {
   "name": "searchtides-dashboard",
   "version": "1.0.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@upstash/redis": "^1.37.0"
+  }
 }

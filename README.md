@@ -6,7 +6,7 @@ SearchTides dashboard for the **Superfeeders** SeaTable base: published overview
 
 ### 1. GitHub
 
-Push this repository (root contains `index.html` and `api/data.js`).
+Push this repository (root contains `index.html`, `api/*.js`, and `lib/`).
 
 ### 2. Vercel
 
@@ -22,24 +22,35 @@ In Vercel → Project → Settings → Environment Variables:
 | Name | Description |
 |------|-------------|
 | `SUPERFEEDER_API_TOKEN` | SeaTable API token for the Superfeeders base |
-| `SUPERFEEDER_MONTHLY_BUDGET_JSON` | Optional. **Monthly budgets live only here (Vercel), not in SeaTable.** JSON map per client / month (see below). |
+| `SUPERFEEDER_MONTHLY_BUDGET_JSON` | Optional. **Seed / fallback** budgets: JSON map per client / month. Merged with Redis (Redis wins on conflicts). |
+| `SUPERFEEDER_BUDGET_SECRET` | Required **to save budgets from the dashboard**. Long random string; same value typed in the UI as “Budget admin key”. |
+| `UPSTASH_REDIS_REST_URL` | From **Upstash Redis** (Vercel Marketplace). Shared storage for budgets saved in the UI. |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis token (paired with URL). |
 | `SUPERFEEDER_TIMEZONE` | Optional. IANA zone for “current production month” (default `Europe/Prague`). Use e.g. `America/New_York` if your team aligns months to US Eastern. |
 
 After adding or changing variables, **Redeploy** the project.
 
-### Monthly budget JSON (how to create it)
+### Monthly budgets: Redis + dashboard (recommended)
 
-**Budgets are configured only on Vercel** (this env var). SeaTable holds **spend** (`FINAL $`) and pipeline data; it does not store the monthly budget cap. Everyone who loads the dashboard sees the same numbers from this JSON until you change the variable and redeploy.
+1. In Vercel → your project → **Storage** / [Marketplace](https://vercel.com/marketplace) → add **Upstash Redis** (or another Redis with REST URL + token).  
+2. Link it to the project so **`UPSTASH_REDIS_REST_URL`** and **`UPSTASH_REDIS_REST_TOKEN`** appear in Environment Variables.  
+3. Set **`SUPERFEEDER_BUDGET_SECRET`** to a long random string (keep it private).  
+4. Redeploy.
 
-**You do not need this variable for the dashboard to run.** If it is missing, the **This month** tab still shows pipeline counts; budget fields show “Not set” / “N/A”.
+On the **This month** tab, enter that secret once per session, type each client’s monthly budget, and click **Save**. Values are stored in Redis under key `superfeeder:monthly_budget`; **every visitor** sees the same numbers. **Spend** and **remaining** still use SeaTable **`FINAL $`** (remaining = budget − spend).
 
-When you are ready:
+`POST /api/budget` expects JSON: `{ "secret": "<SUPERFEEDER_BUDGET_SECRET>", "client": "Exact Client Name", "month": "Apr 2026", "amount": 12000 }` (use `""` for `amount` to clear that client/month in Redis).
 
-1. In Vercel open your project → **Settings** → **Environment Variables**.
-2. Click **Add New**.
-3. **Name:** `SUPERFEEDER_MONTHLY_BUDGET_JSON`
-4. **Value:** paste a valid JSON object (see examples below). Use **Production** (and Preview if you want).
-5. Save, then **Deployments** → **…** on the latest deployment → **Redeploy**.
+### Monthly budget JSON (optional seed / fallback)
+
+**SeaTable does not store the budget cap.** Optional env **`SUPERFEEDER_MONTHLY_BUDGET_JSON`** is merged with Redis: for the same client + month, **Redis overrides** env. Use env for defaults before anyone saves from the UI, or when Redis is not configured.
+
+**You do not need budget env or Redis for the dashboard to run.** If both are missing, the **This month** tab still shows pipeline counts; budget shows “Not set” / “N/A”.
+
+To set **env-only** seed budgets (optional):
+
+1. Vercel → **Settings** → **Environment Variables** → add **`SUPERFEEDER_MONTHLY_BUDGET_JSON`**.  
+2. Paste JSON (examples below), save, **Redeploy**.
 
 **Shape:** outer keys = **client name** matching OM **`CLIENT*`** (and your ACTIVE Clients list). Inner keys = **month label** matching **`Prod Month`** in OM (e.g. `Apr 2026`). Values = **number** (monthly budget in dollars, no `$`).
 

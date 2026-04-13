@@ -235,6 +235,18 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
 .rem-ok { color: var(--green) !important; }
 .bc-muted { color: var(--muted); font-family: var(--fs) !important; font-size: 15px !important; font-weight: 500 !important; }
 
+.month-budget-toolbar { margin-bottom: 1.25rem; padding: 14px 16px; border-radius: 8px; border: 1px solid var(--border2); background: var(--surface2); max-width: 52rem; }
+.month-budget-note, .month-budget-warn { font-size: 12px; color: var(--muted2); line-height: 1.5; margin: 0 0 10px; }
+.month-budget-warn { border-left: 3px solid var(--amber); padding-left: 12px; }
+.month-budget-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.budget-secret-input { font-family: var(--fm); font-size: 12px; padding: 8px 12px; border: 1px solid var(--border2); border-radius: 4px; min-width: 220px; background: var(--surface); }
+.budget-cell-edit .budget-edit-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin-top: 4px; }
+.budget-amt-input { font-family: var(--fd); font-size: 18px; font-weight: 700; width: 7rem; padding: 6px 8px; text-align: center; border: 1px solid var(--border2); border-radius: 4px; }
+.budget-save-btn { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; font-family: var(--fm); padding: 8px 14px; background: var(--sf-accent); color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+.budget-save-btn:hover { filter: brightness(1.05); }
+.budget-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.budget-edit-hint { font-size: 10px; color: var(--muted); margin-top: 6px; font-family: var(--fm); }
+
 .sf-body { padding: 1cm 20px 20px; }
 .pt-wrap { overflow-x: auto; margin-top: 4px; border-radius: 8px; border: 1px solid var(--border); }
 .pt-table { width: 100%; border-collapse: collapse; font-family: var(--fs); font-size: 13px; }
@@ -305,6 +317,7 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
   </div>
   <div class="tab-content" id="tab-month">
     <p class="panel-hint" id="month-hint"></p>
+    <div id="month-budget-toolbar" class="month-budget-toolbar"></div>
     <div class="clients-grid" id="month-grid"></div>
   </div>
   <div id="client-tab-panels"></div>
@@ -555,6 +568,61 @@ function budgetCell(lbl, innerHtml, valClass) {
   return '<div class="budget-cell"><div class="bc-lbl">' + esc(lbl) + '</div><div class="bc-val' + vc + '">' + innerHtml + "</div></div>";
 }
 
+function renderMonthToolbar(payload) {
+  var el = document.getElementById("month-budget-toolbar");
+  if (!el) return;
+  if (payload.budget_save_configured) {
+    el.innerHTML =
+      '<p class="month-budget-note">To <strong>save</strong> budgets for all visitors, enter the admin key (same value as <code>SUPERFEEDER_BUDGET_SECRET</code> in Vercel). Values are stored in <strong>Upstash Redis</strong> (linked to the project). Spend below still comes from SeaTable (<code>FINAL $</code>).</p>' +
+      '<div class="month-budget-row"><input type="password" id="budget-admin-secret" class="budget-secret-input" placeholder="Budget admin key" autocomplete="off" /></div>';
+  } else {
+    el.innerHTML =
+      '<p class="month-budget-warn">Saving from the dashboard requires <strong>Upstash Redis</strong> (Vercel Marketplace / integration) and <code>SUPERFEEDER_BUDGET_SECRET</code>. Until then budgets can only come from <code>SUPERFEEDER_MONTHLY_BUDGET_JSON</code> (read-only in the UI).</p>';
+  }
+}
+
+async function saveClientBudget(idx) {
+  var payload = globalPayload;
+  if (!payload || !payload.budget_save_configured) return;
+  var list = payload.currentMonth || [];
+  var item = list[idx];
+  if (!item) return;
+  var secretEl = document.getElementById("budget-admin-secret");
+  var secret = secretEl ? secretEl.value.trim() : "";
+  if (!secret) {
+    alert("Enter the budget admin key first.");
+    return;
+  }
+  var inp = document.getElementById("budget-inp-" + idx);
+  var raw = inp ? inp.value.trim() : "";
+  var body = {
+    secret: secret,
+    client: item.client,
+    month: payload.current_prod_month,
+    amount: raw === "" ? "" : raw
+  };
+  var buttons = document.querySelectorAll(".budget-save-btn");
+  var thisBtn = buttons[idx];
+  if (thisBtn) thisBtn.disabled = true;
+  try {
+    var res = await fetch("/api/budget", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    var j = await res.json().catch(function () {
+      return {};
+    });
+    if (!res.ok || !j.ok) throw new Error(j.error || "HTTP " + res.status);
+    await loadData();
+    switchTab("month");
+  } catch (e) {
+    alert("Save failed: " + e.message);
+  } finally {
+    if (thisBtn) thisBtn.disabled = false;
+  }
+}
+
 function postTypeTable(prof, guest) {
   var html = '<div class="sf-body">';
   html += '<div class="pt-wrap"><table class="pt-table">';
@@ -589,14 +657,18 @@ function renderMonth(payload) {
     esc(monthLabelDisplayFullNoYear(pm)) +
     "</strong> (" +
     esc(String(payload.year || 2026)) +
-    "). Per client: budget summary, then pipeline for <strong>Profound Placement</strong> and <strong>Guest post</strong> only.";
+    "). Per client: budget (editable when Redis + secret are configured), spend from SeaTable, remaining = budget − spend, then pipeline for <strong>Profound Placement</strong> and <strong>Guest post</strong> only.";
+
+  renderMonthToolbar(payload);
 
   var grid = document.getElementById("month-grid");
   var list = payload.currentMonth || [];
   if (!list.length) {
-    grid.innerHTML = '<div class="empty-state">No data for this month yet. If you expect budget rows only, set <code>SUPERFEEDER_MONTHLY_BUDGET_JSON</code> in Vercel (client names must match SeaTable).</div>';
+    grid.innerHTML =
+      '<div class="empty-state">No ACTIVE clients with data or budget for this production month. Add rows in SeaTable (OM) or set a budget (Redis / env JSON). Client names must match <code>CLIENT*</code>.</div>';
     return;
   }
+  var canSave = !!payload.budget_save_configured;
   var html = "";
   for (var i = 0; i < list.length; i++) {
     var c = list[i];
@@ -613,7 +685,25 @@ function renderMonth(payload) {
     html += '<div class="sf-card-head"><div class="sf-client">' + esc(c.client) + "</div></div>";
 
     html += '<div class="budget-row-cards">';
-    html += budgetCell("Monthly budget", bud == null ? '<span class="bc-muted">Not set</span>' : "$" + fmtMoney(bud), "");
+    html += '<div class="budget-cell budget-cell-edit">';
+    html += '<div class="bc-lbl">Monthly budget</div>';
+    if (canSave) {
+      html +=
+        '<div class="budget-edit-row"><input type="number" class="budget-amt-input" id="budget-inp-' +
+        i +
+        '" step="0.01" min="0" placeholder="—" value="' +
+        (bud == null ? "" : esc(String(bud))) +
+        '" /><button type="button" class="budget-save-btn" onclick="saveClientBudget(' +
+        i +
+        ')">Save</button></div>';
+      html += '<p class="budget-edit-hint">Redis · ' + esc(monthLabelDisplayFullNoYear(pm)) + " " + esc(String(payload.year || 2026)) + "</p>";
+    } else {
+      html +=
+        bud == null
+          ? '<div class="bc-val"><span class="bc-muted">Not set</span></div>'
+          : '<div class="bc-val">$' + fmtMoney(bud) + "</div>";
+    }
+    html += "</div>";
     html += budgetCell("Spend (FINAL $)", "$" + fmtMoney(spend), "");
     html += budgetCell("Remaining", rem == null ? '<span class="bc-muted">N/A</span>' : "$" + fmtMoney(rem), remClass);
     html += "</div>";

@@ -1,3 +1,6 @@
+import { parseBudgetJson, mergeBudgetMaps, kvBudgetKey } from "../lib/budgetMerge.js";
+import { getRedis } from "../lib/redis.js";
+
 const SERVER = "https://seatable.searchtides.com";
 
 const OM_TABLE = "OM";
@@ -312,12 +315,22 @@ function emptySection() {
   return { published: 0, pending: 0, content_requested: 0 };
 }
 
-function parseBudgetJson(raw) {
-  if (!raw || !String(raw).trim()) return {};
+async function loadStoredBudgetMap() {
+  const redis = getRedis();
+  if (!redis) return {};
   try {
-    const o = JSON.parse(String(raw));
-    return o && typeof o === "object" ? o : {};
+    let v = await redis.get(kvBudgetKey());
+    if (typeof v === "string") {
+      try {
+        v = JSON.parse(v);
+      } catch (e) {
+        return {};
+      }
+    }
+    if (!v || typeof v !== "object") return {};
+    return v;
   } catch (e) {
+    console.error("Superfeeder: Redis budget read failed:", e.message);
     return {};
   }
 }
@@ -327,7 +340,7 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
 
   const TOKEN = process.env.SUPERFEEDER_API_TOKEN;
-  /** Monthly budget caps: Vercel env only (not SeaTable). Spend still from OM FINAL $. */
+  /** Default / seed budgets from env; dashboard edits merge from Upstash Redis (Vercel). Spend from OM FINAL $. */
   const BUDGET_JSON = process.env.SUPERFEEDER_MONTHLY_BUDGET_JSON || "";
 
   if (!TOKEN) {
@@ -337,9 +350,12 @@ export default async function handler(req, res) {
   const YEAR = 2026;
   const PM_CURRENT = prodMonthNow();
   const months = monthsOfYear(YEAR);
-  const budgetMap = parseBudgetJson(BUDGET_JSON);
+  const envBudget = parseBudgetJson(BUDGET_JSON);
 
   try {
+    const storedBudget = await loadStoredBudgetMap();
+    const budgetMap = mergeBudgetMaps(envBudget, storedBudget);
+
     const access = await getAccess(TOKEN);
     const rows = await listRows(access, OM_TABLE, OM_VIEW);
     let clientRows = [];
@@ -527,6 +543,12 @@ export default async function handler(req, res) {
       generated: new Date().toISOString(),
       year: YEAR,
       current_prod_month: PM_CURRENT,
+      budget_save_configured: !!(
+        process.env.UPSTASH_REDIS_REST_URL &&
+        process.env.UPSTASH_REDIS_REST_TOKEN &&
+        process.env.SUPERFEEDER_BUDGET_SECRET &&
+        String(process.env.SUPERFEEDER_BUDGET_SECRET).trim()
+      ),
       months: months,
       yearMatrix: yearMatrix,
       yearSpendMatrix: yearSpendMatrix,
