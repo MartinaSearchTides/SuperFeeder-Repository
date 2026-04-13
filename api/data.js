@@ -236,19 +236,35 @@ function getLiveLinkDateSortMs(row) {
   return isNaN(t) ? NaN : t;
 }
 
+function formatDateYyyyMmDdLocal(d) {
+  if (!d || isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  return y + "-" + mo + "-" + da;
+}
+
+/** UI: date only YYYY-MM-DD (local calendar day when parseable). */
 function getLiveLinkDateDisplay(row) {
   const raw = findLiveLinkDateRaw(row);
   const r = resolve(raw);
   const val = r != null ? r : raw;
   if (val == null || val === "") return "";
-  if (typeof val === "string") return val.trim();
+  if (typeof val === "string") {
+    const s = val.trim();
+    const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (m) return m[1];
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return formatDateYyyyMmDdLocal(d);
+    return "";
+  }
   if (typeof val === "number" && !isNaN(val)) {
     const ms = val > 1e12 ? val : val > 1e9 ? val * 1000 : val;
     const d = new Date(ms);
-    return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    return isNaN(d.getTime()) ? "" : formatDateYyyyMmDdLocal(d);
   }
   const d = new Date(val);
-  return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  return isNaN(d.getTime()) ? "" : formatDateYyyyMmDdLocal(d);
 }
 
 function findClientsStatusRaw(row) {

@@ -159,6 +159,29 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
   text-align: center;
 }
 .year-table tbody tr:hover th.year-row-month { background: var(--surface2); }
+.year-table tfoot tr.year-total-row th,
+.year-table tfoot tr.year-total-row td {
+  border-top: 2px solid var(--border2);
+  padding-top: 14px;
+  padding-bottom: 14px;
+  font-family: var(--fd);
+  font-weight: 700;
+  font-size: 15px;
+  vertical-align: middle;
+}
+.year-table tfoot th.year-total-label {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--surface3);
+  z-index: 2;
+  box-shadow: 4px 0 8px -4px rgba(0,0,0,0.08);
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.year-table tfoot td.year-total-cell {
+  text-align: center;
+}
 .num-zero { color: var(--muted); font-weight: 600 !important; font-size: 17px !important; }
 
 .year-spend-block { margin-top: 1.75rem; }
@@ -467,7 +490,17 @@ function renderYearTable(payload) {
     }
     html += "</tr>";
   }
-  html += "</tbody></table></div>";
+  html += '<tfoot><tr class="year-total-row">';
+  html += '<th scope="row" class="year-total-label">Total</th>';
+  for (var t = 0; t < matrix.length; t++) {
+    var bmTot = matrix[t].byMonth || {};
+    var sumCount = 0;
+    for (var mi = 0; mi < months.length; mi++) {
+      sumCount += parseInt(bmTot[months[mi]], 10) || 0;
+    }
+    html += '<td class="year-total-cell year-cell-num year-col-' + (t % 8) + (sumCount ? "" : " num-zero") + '">' + fmtInt(sumCount) + "</td>";
+  }
+  html += "</tr></tfoot></table></div>";
   host.innerHTML = html;
 }
 
@@ -501,7 +534,19 @@ function renderYearSpendTable(payload) {
     }
     html += "</tr>";
   }
-  html += "</tbody></table></div>";
+  html += '<tfoot><tr class="year-total-row">';
+  html += '<th scope="row" class="year-total-label">Total</th>';
+  for (var t2 = 0; t2 < matrix.length; t2++) {
+    var bmSpend = matrix[t2].byMonth || {};
+    var sumSpend = 0;
+    for (var mj = 0; mj < months.length; mj++) {
+      var v = parseFloat(bmSpend[months[mj]]);
+      if (!isNaN(v)) sumSpend += v;
+    }
+    sumSpend = Math.round(sumSpend * 100) / 100;
+    html += '<td class="year-total-cell year-cell-money year-col-' + (t2 % 8) + (sumSpend ? "" : " num-zero") + '">$' + fmtMoney(sumSpend) + "</td>";
+  }
+  html += "</tr></tfoot></table></div>";
   host.innerHTML = html;
 }
 
