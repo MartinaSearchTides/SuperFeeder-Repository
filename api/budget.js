@@ -2,7 +2,7 @@ import { getRedis } from "../lib/redis.js";
 import { kvBudgetKey } from "../lib/budgetMerge.js";
 
 function normalizeProdMonthLabel(pm) {
-  return String(pm == null ? "")
+  return String(pm == null ? "" : pm)
     .replace(/\u00a0/g, " ")
     .replace(/\s+/g, " ")
     .trim();
