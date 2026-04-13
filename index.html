@@ -279,6 +279,33 @@ function displayHost(url) {
   }
 }
 
+var MONTH_ABBR_TO_FULL = {
+  Jan: "January",
+  Feb: "February",
+  Mar: "March",
+  Apr: "April",
+  May: "May",
+  Jun: "June",
+  Jul: "July",
+  Aug: "August",
+  Sep: "September",
+  Oct: "October",
+  Nov: "November",
+  Dec: "December"
+};
+
+/** API month keys like "Apr 2026" → full month name only (year omitted in UI). */
+function monthLabelDisplayFullNoYear(mk) {
+  var s = String(mk || "")
+    .trim()
+    .replace(/\u00a0/g, " ");
+  var m = s.match(/^([A-Za-z]{3,})\s+\d{4}$/);
+  if (!m) return s;
+  var abbr = m[1].slice(0, 3);
+  var key = abbr.charAt(0).toUpperCase() + abbr.slice(1).toLowerCase();
+  return MONTH_ABBR_TO_FULL[key] || s;
+}
+
 function switchTab(tabId) {
   document.querySelectorAll(".tab").forEach(function (t) {
     t.classList.toggle("active", t.getAttribute("data-tab") === tabId);
@@ -393,7 +420,7 @@ function renderYearTable(payload) {
   html += "</tr></thead><tbody>";
   for (var m = 0; m < months.length; m++) {
     var mk = months[m];
-    html += '<tr><th scope="row" class="year-row-month">' + esc(mk) + "</th>";
+    html += '<tr><th scope="row" class="year-row-month">' + esc(monthLabelDisplayFullNoYear(mk)) + "</th>";
     for (var r = 0; r < matrix.length; r++) {
       var bm = matrix[r].byMonth || {};
       var count = bm[mk] || 0;
@@ -426,7 +453,7 @@ function renderYearSpendTable(payload) {
   html += "</tr></thead><tbody>";
   for (var m = 0; m < months.length; m++) {
     var mk = months[m];
-    html += '<tr><th scope="row" class="year-row-month">' + esc(mk) + "</th>";
+    html += '<tr><th scope="row" class="year-row-month">' + esc(monthLabelDisplayFullNoYear(mk)) + "</th>";
     for (var r = 0; r < matrix.length; r++) {
       var bm = matrix[r].byMonth || {};
       var amt = parseFloat(bm[mk]);
@@ -474,7 +501,11 @@ function ptRow(name, rowClass, data, showCR) {
 function renderMonth(payload) {
   var pm = payload.current_prod_month || "";
   document.getElementById("month-hint").innerHTML =
-    "<strong>This month.</strong> Production month <strong>" + esc(pm) + "</strong>. Per client: budget summary, then pipeline for <strong>Profound Placement</strong> and <strong>Guest post</strong> only.";
+    "<strong>This month.</strong> Production month <strong>" +
+    esc(monthLabelDisplayFullNoYear(pm)) +
+    "</strong> (" +
+    esc(String(payload.year || 2026)) +
+    "). Per client: budget summary, then pipeline for <strong>Profound Placement</strong> and <strong>Guest post</strong> only.";
 
   var grid = document.getElementById("month-grid");
   var list = payload.currentMonth || [];
@@ -530,7 +561,7 @@ async function loadData() {
     document.getElementById("nav-meta").textContent =
       json.year +
       " data · " +
-      (json.current_prod_month || "") +
+      monthLabelDisplayFullNoYear(json.current_prod_month || "") +
       " · " +
       tiles +
       " published · " +
