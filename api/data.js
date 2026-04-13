@@ -1,5 +1,5 @@
 import { parseBudgetJson, mergeBudgetMaps, kvBudgetKey } from "../lib/budgetMerge.js";
-import { getRedis } from "../lib/redis.js";
+import { getRedis, isRedisEnvConfigured } from "../lib/redis.js";
 
 const SERVER = "https://seatable.searchtides.com";
 
@@ -544,11 +544,18 @@ export default async function handler(req, res) {
       year: YEAR,
       current_prod_month: PM_CURRENT,
       budget_save_configured: !!(
-        process.env.UPSTASH_REDIS_REST_URL &&
-        process.env.UPSTASH_REDIS_REST_TOKEN &&
+        isRedisEnvConfigured() &&
         process.env.SUPERFEEDER_BUDGET_SECRET &&
         String(process.env.SUPERFEEDER_BUDGET_SECRET).trim()
       ),
+      /** Which piece is missing (no secret values exposed). */
+      budget_save_status: {
+        redis_env: isRedisEnvConfigured(),
+        budget_secret_set: !!(
+          process.env.SUPERFEEDER_BUDGET_SECRET &&
+          String(process.env.SUPERFEEDER_BUDGET_SECRET).trim()
+        )
+      },
       months: months,
       yearMatrix: yearMatrix,
       yearSpendMatrix: yearSpendMatrix,

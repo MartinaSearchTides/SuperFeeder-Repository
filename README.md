@@ -24,8 +24,10 @@ In Vercel → Project → Settings → Environment Variables:
 | `SUPERFEEDER_API_TOKEN` | SeaTable API token for the Superfeeders base |
 | `SUPERFEEDER_MONTHLY_BUDGET_JSON` | Optional. **Seed / fallback** budgets: JSON map per client / month. Merged with Redis (Redis wins on conflicts). |
 | `SUPERFEEDER_BUDGET_SECRET` | Required **to save budgets from the dashboard**. Long random string; same value typed in the UI as “Budget admin key”. |
-| `UPSTASH_REDIS_REST_URL` | From **Upstash Redis** (Vercel Marketplace). Shared storage for budgets saved in the UI. |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis token (paired with URL). |
+| `UPSTASH_REDIS_REST_URL` | From **Upstash Redis** (Vercel Storage). **Or** use legacy names below. |
+| `UPSTASH_REDIS_REST_TOKEN` | Paired with URL. |
+| `KV_REST_API_URL` | **Alternative:** if Vercel only created these (older KV / Redis link), the app uses them automatically. |
+| `KV_REST_API_TOKEN` | **Alternative:** paired with `KV_REST_API_URL`. |
 | `SUPERFEEDER_TIMEZONE` | Optional. IANA zone for “current production month” (default `Europe/Prague`). Use e.g. `America/New_York` if your team aligns months to US Eastern. |
 
 After adding or changing variables, **Redeploy** the project.
@@ -33,7 +35,7 @@ After adding or changing variables, **Redeploy** the project.
 ### Monthly budgets: Redis + dashboard (recommended)
 
 1. In Vercel → your project → **Storage** / [Marketplace](https://vercel.com/marketplace) → add **Upstash Redis** (or another Redis with REST URL + token).  
-2. Link it to the project so **`UPSTASH_REDIS_REST_URL`** and **`UPSTASH_REDIS_REST_TOKEN`** appear in Environment Variables.  
+2. Link it to the project. Vercel usually adds **`UPSTASH_REDIS_REST_URL`** / **`UPSTASH_REDIS_REST_TOKEN`** or **`KV_REST_API_URL`** / **`KV_REST_API_TOKEN`** — the dashboard supports **either** pair.  
 3. Set **`SUPERFEEDER_BUDGET_SECRET`** to a long random string (keep it private).  
 4. Redeploy.
 

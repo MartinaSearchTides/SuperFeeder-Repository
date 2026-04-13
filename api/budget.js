@@ -29,7 +29,8 @@ export default async function handler(req, res) {
   if (!redis) {
     return res.status(503).json({
       ok: false,
-      error: "Add Upstash Redis via Vercel (UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN missing)."
+      error:
+        "Redis REST URL/token missing. Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN, or KV_REST_API_URL + KV_REST_API_TOKEN (Vercel Storage), then redeploy."
     });
   }
 
