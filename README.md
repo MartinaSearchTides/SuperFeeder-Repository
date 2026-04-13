@@ -35,11 +35,11 @@ After adding or changing variables, **Redeploy** the project.
 ### Monthly budgets: Redis + dashboard (recommended)
 
 1. In Vercel → your project → **Storage** / [Marketplace](https://vercel.com/marketplace) → add **Upstash Redis** (or another Redis with REST URL + token).  
-2. Link it to the project. Vercel usually adds **`UPSTASH_REDIS_REST_URL`** / **`UPSTASH_REDIS_REST_TOKEN`** or **`KV_REST_API_URL`** / **`KV_REST_API_TOKEN`** — the dashboard supports **either** pair.  
+2. Link it to the project. Vercel usually adds **`UPSTASH_REDIS_REST_URL`** / **`UPSTASH_REDIS_REST_TOKEN`** or **`KV_REST_API_URL`** / **`KV_REST_API_TOKEN`** — the dashboard supports **either** pair. **Saving budgets requires the read/write token** (`KV_REST_API_TOKEN` or `UPSTASH_REDIS_REST_TOKEN`), not the read-only token.  
 3. Set **`SUPERFEEDER_BUDGET_SECRET`** to a long random string (keep it private).  
 4. Redeploy.
 
-On the **This month** tab, enter that secret once per session, type each client’s monthly budget, and click **Save**. Values are stored in Redis under key `superfeeder:monthly_budget`; **every visitor** sees the same numbers. **Spend** and **remaining** still use SeaTable **`FINAL $`** (remaining = budget − spend).
+On the **This month** tab, enter that secret once per session, type each client’s monthly budget, and click **Save**. **Everyone** who opens the dashboard sees the same saved budgets. **Spend** and **remaining** still come from SeaTable **`FINAL $`** (remaining = budget − spend).
 
 `POST /api/budget` expects JSON: `{ "secret": "<SUPERFEEDER_BUDGET_SECRET>", "client": "Exact Client Name", "month": "Apr 2026", "amount": 12000 }` (use `""` for `amount` to clear that client/month in Redis).
 

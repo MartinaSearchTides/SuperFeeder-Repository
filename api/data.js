@@ -327,7 +327,7 @@ async function loadStoredBudgetMap() {
         return {};
       }
     }
-    if (!v || typeof v !== "object") return {};
+    if (!v || typeof v !== "object" || Array.isArray(v)) return {};
     return v;
   } catch (e) {
     console.error("Superfeeder: Redis budget read failed:", e.message);

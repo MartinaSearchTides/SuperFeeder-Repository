@@ -8,6 +8,43 @@ function normalizeProdMonthLabel(pm) {
     .trim();
 }
 
+/** Vercel Node may pass Buffer or string; normalize to a plain object. */
+function parseRequestBody(raw) {
+  if (raw == null) return null;
+  if (typeof Buffer !== "undefined" && Buffer.isBuffer(raw)) {
+    raw = raw.toString("utf8");
+  }
+  if (typeof raw === "string") {
+    try {
+      const o = JSON.parse(raw || "{}");
+      return o && typeof o === "object" ? o : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  if (typeof raw === "object") {
+    return raw;
+  }
+  return null;
+}
+
+function redisWriteErrorHint(msg) {
+  const m = String(msg || "").toLowerCase();
+  if (
+    m.includes("read only") ||
+    m.includes("readonly") ||
+    m.includes("noperm") ||
+    m.includes("err noauth") ||
+    m.includes("wrongpass")
+  ) {
+    return (
+      String(msg) +
+      " — In Vercel env, use the primary KV_REST_API_TOKEN (read/write), not KV_REST_API_READ_ONLY_TOKEN."
+    );
+  }
+  return String(msg || "Save failed");
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -34,18 +71,13 @@ export default async function handler(req, res) {
     });
   }
 
-  let body = req.body;
-  if (typeof body === "string") {
-    try {
-      body = JSON.parse(body || "{}");
-    } catch (e) {
-      return res.status(400).json({ ok: false, error: "Invalid JSON body" });
-    }
-  }
-  if (!body || typeof body !== "object") {
+  let body = parseRequestBody(req.body);
+  if (!body) {
     return res.status(400).json({ ok: false, error: "JSON body required" });
   }
-  if (body.secret !== needSecret) {
+  const got = String(body.secret ?? "").trim();
+  const need = String(needSecret).trim();
+  if (!got || got !== need) {
     return res.status(403).json({ ok: false, error: "Invalid secret" });
   }
 
@@ -65,7 +97,7 @@ export default async function handler(req, res) {
         stored = {};
       }
     }
-    if (!stored || typeof stored !== "object") stored = {};
+    if (!stored || typeof stored !== "object" || Array.isArray(stored)) stored = {};
     if (!stored[client]) stored[client] = {};
 
     const amtRaw = body.amount;
@@ -78,10 +110,11 @@ export default async function handler(req, res) {
       stored[client][month] = Math.round(n * 100) / 100;
     }
 
-    await redis.set(key, stored);
+    await redis.set(key, JSON.stringify(stored));
     return res.status(200).json({ ok: true });
   } catch (e) {
     console.error("Superfeeder budget save:", e);
-    return res.status(500).json({ ok: false, error: e.message || "Save failed" });
+    const hint = redisWriteErrorHint(e && e.message ? e.message : e);
+    return res.status(500).json({ ok: false, error: hint });
   }
 }

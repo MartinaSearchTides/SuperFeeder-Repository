@@ -573,11 +573,11 @@ function renderMonthToolbar(payload) {
   if (!el) return;
   if (payload.budget_save_configured) {
     el.innerHTML =
-      '<p class="month-budget-note">To <strong>save</strong> budgets for all visitors, enter the admin key (same value as <code>SUPERFEEDER_BUDGET_SECRET</code> in Vercel). Values are stored in <strong>Upstash Redis</strong> (linked to the project). Spend below still comes from SeaTable (<code>FINAL $</code>).</p>' +
-      '<div class="month-budget-row"><input type="password" id="budget-admin-secret" class="budget-secret-input" placeholder="Budget admin key" autocomplete="off" /></div>';
+      '<p class="month-budget-note">To <strong>save</strong> monthly budgets, type the <strong>password you were given</strong> in the field below. Then enter each client\'s amount and click <strong>Save</strong>. The same password works for every client.</p>' +
+      '<div class="month-budget-row"><input type="password" id="budget-admin-secret" class="budget-secret-input" placeholder="Password" autocomplete="off" /></div>';
   } else {
     el.innerHTML =
-      '<p class="month-budget-warn">Saving from the dashboard requires <strong>Upstash Redis</strong> (Vercel Marketplace / integration) and <code>SUPERFEEDER_BUDGET_SECRET</code>. Until then budgets can only come from <code>SUPERFEEDER_MONTHLY_BUDGET_JSON</code> (read-only in the UI).</p>';
+      '<p class="month-budget-warn">Budgets on this screen are <strong>read-only</strong> right now. To enable saving from here, your administrator must finish setup. Until then, amounts come from the configured defaults.</p>';
   }
 }
 
@@ -590,7 +590,7 @@ async function saveClientBudget(idx) {
   var secretEl = document.getElementById("budget-admin-secret");
   var secret = secretEl ? secretEl.value.trim() : "";
   if (!secret) {
-    alert("Enter the budget admin key first.");
+    alert("Enter the password first.");
     return;
   }
   var inp = document.getElementById("budget-inp-" + idx);
@@ -610,10 +610,17 @@ async function saveClientBudget(idx) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body)
     });
-    var j = await res.json().catch(function () {
-      return {};
-    });
-    if (!res.ok || !j.ok) throw new Error(j.error || "HTTP " + res.status);
+    var text = await res.text();
+    var j = {};
+    try {
+      j = text ? JSON.parse(text) : {};
+    } catch (ignore) {
+      j = {};
+    }
+    if (!res.ok || !j.ok) {
+      var detail = (j && j.error) || (text && text.length < 400 ? text : "") || "HTTP " + res.status;
+      throw new Error(detail);
+    }
     await loadData();
     switchTab("month");
   } catch (e) {
@@ -635,7 +642,7 @@ function postTypeTable(prof, guest) {
   html += ptRow("Profound Placement", "row-prof", prof, false);
   html += ptRow("Guest post", "row-guest", guest, true);
   html += "</tbody></table></div>";
-  html += "<p class=\"pt-footnote\">Pipeline table shows Profound Placement and Guest post only. Content requested applies to guest posts (Profound shows \"-\"). Budget / spend above still uses FINAL $ for all post types in this production month (API rules).</p>";
+  html += "<p class=\"pt-footnote\">This table lists <strong>Profound Placement</strong> and <strong>Guest post</strong> only. <em>Content requested</em> applies to guest posts; Profound shows a dash. The budget and spend figures above count all post types for this production month.</p>";
   html += "</div>";
   return html;
 }
@@ -655,9 +662,9 @@ function renderMonth(payload) {
   document.getElementById("month-hint").innerHTML =
     "<strong>This month.</strong> Production month <strong>" +
     esc(monthLabelDisplayFullNoYear(pm)) +
-    "</strong> (" +
+    " " +
     esc(String(payload.year || 2026)) +
-    "). Per client: budget (editable when Redis + secret are configured), spend from SeaTable, remaining = budget − spend, then pipeline for <strong>Profound Placement</strong> and <strong>Guest post</strong> only.";
+    "</strong>. For each client: <strong>Monthly budget</strong>, <strong>spend</strong> from published live links, and <strong>remaining</strong> = budget − spend. The pipeline table shows only <strong>Profound Placement</strong> and <strong>Guest post</strong>.";
 
   renderMonthToolbar(payload);
 
@@ -665,7 +672,7 @@ function renderMonth(payload) {
   var list = payload.currentMonth || [];
   if (!list.length) {
     grid.innerHTML =
-      '<div class="empty-state">No ACTIVE clients with data or budget for this production month. Add rows in SeaTable (OM) or set a budget (Redis / env JSON). Client names must match <code>CLIENT*</code>.</div>';
+      '<div class="empty-state">No clients to show for this production month. If something is missing, contact your administrator.</div>';
     return;
   }
   var canSave = !!payload.budget_save_configured;
@@ -696,7 +703,12 @@ function renderMonth(payload) {
         '" /><button type="button" class="budget-save-btn" onclick="saveClientBudget(' +
         i +
         ')">Save</button></div>';
-      html += '<p class="budget-edit-hint">Redis · ' + esc(monthLabelDisplayFullNoYear(pm)) + " " + esc(String(payload.year || 2026)) + "</p>";
+      html +=
+        '<p class="budget-edit-hint">Saved amount applies to <strong>' +
+        esc(monthLabelDisplayFullNoYear(pm)) +
+        " " +
+        esc(String(payload.year || 2026)) +
+        "</strong>.</p>";
     } else {
       html +=
         bud == null
@@ -704,7 +716,7 @@ function renderMonth(payload) {
           : '<div class="bc-val">$' + fmtMoney(bud) + "</div>";
     }
     html += "</div>";
-    html += budgetCell("Spend (FINAL $)", "$" + fmtMoney(spend), "");
+    html += budgetCell("Spend", "$" + fmtMoney(spend), "");
     html += budgetCell("Remaining", rem == null ? '<span class="bc-muted">N/A</span>' : "$" + fmtMoney(rem), remClass);
     html += "</div>";
 
