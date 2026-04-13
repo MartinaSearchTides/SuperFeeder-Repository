@@ -78,12 +78,47 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
 
 .table-wrap { overflow-x: auto; border: 1px solid var(--border2); border-radius: 8px; margin-bottom: 2rem; background: var(--surface); }
 .year-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: var(--fm); }
-.year-table th, .year-table td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
-.year-table th:first-child, .year-table td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); z-index: 1; box-shadow: 4px 0 8px -4px rgba(0,0,0,0.08); }
-.year-table thead th { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--surface2); }
+.year-table th, .year-table td { padding: 12px 14px; text-align: right; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.year-table thead th.year-corner,
+.year-table tbody th.year-row-month {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 2;
+  box-shadow: 4px 0 8px -4px rgba(0,0,0,0.08);
+  white-space: nowrap;
+}
+.year-table thead th.year-corner { z-index: 3; background: var(--surface2); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.year-table thead th.year-th-client {
+  font-family: var(--fd);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  background: var(--surface2);
+  text-align: center;
+  white-space: normal;
+  min-width: 4.5rem;
+  line-height: 1.25;
+}
+.year-table tbody th.year-row-month {
+  font-family: var(--fd);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  border-right: 1px solid var(--border);
+}
+.year-table tbody td.year-cell-num {
+  font-family: var(--fd);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
 .year-table tbody tr:hover td { background: var(--surface2); }
-.year-table tbody tr:hover td:first-child { background: var(--surface2); }
-.num-zero { color: var(--muted); }
+.year-table tbody tr:hover th.year-row-month { background: var(--surface2); }
+.num-zero { color: var(--muted); font-weight: 600 !important; font-size: 17px !important; }
 
 .year-split { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border2); }
 .link-grid-title { font-family: var(--fd); font-size: 16px; font-weight: 700; margin: 0 0 0.35rem; }
@@ -201,7 +236,7 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
     <div class="tab" data-tab="month" onclick="switchTab('month')">This month</div>
   </div>
   <div class="tab-content active" id="tab-year">
-    <p class="panel-hint"><strong>2026 overview.</strong> Numbers are published articles only (counts by client and production month). Further down, each card opens the live URL from SeaTable.</p>
+    <p class="panel-hint"><strong>2026 overview.</strong> Rows are months, columns are clients—published article counts only. Further down, each card opens the live URL from SeaTable.</p>
     <div id="year-table-host"></div>
     <div class="year-split">
       <h2 class="link-grid-title">Published links</h2>
@@ -262,18 +297,20 @@ function renderYearTable(payload) {
     host.innerHTML = '<div class="empty-state">No 2026 rows matched filters in SeaTable.</div>';
     return;
   }
-  var html = '<div class="table-wrap"><table class="year-table"><thead><tr><th>Client</th>';
-  for (var i = 0; i < months.length; i++) {
-    html += "<th>" + esc(months[i]) + "</th>";
+  var clients = matrix.map(function (row) { return row.client; });
+  var html = '<div class="table-wrap"><table class="year-table"><thead><tr>';
+  html += '<th scope="col" class="year-corner">Month</th>';
+  for (var c = 0; c < clients.length; c++) {
+    html += '<th scope="col" class="year-th-client">' + esc(clients[c]) + "</th>";
   }
   html += "</tr></thead><tbody>";
-  for (var r = 0; r < matrix.length; r++) {
-    var row = matrix[r];
-    html += "<tr><td><strong>" + esc(row.client) + "</strong></td>";
-    var bm = row.byMonth || {};
-    for (var j = 0; j < months.length; j++) {
-      var c = bm[months[j]] || 0;
-      html += '<td class="' + (c ? "" : "num-zero") + '">' + fmtInt(c) + "</td>";
+  for (var m = 0; m < months.length; m++) {
+    var mk = months[m];
+    html += '<tr><th scope="row" class="year-row-month">' + esc(mk) + "</th>";
+    for (var r = 0; r < matrix.length; r++) {
+      var bm = matrix[r].byMonth || {};
+      var count = bm[mk] || 0;
+      html += '<td class="year-cell-num ' + (count ? "" : "num-zero") + '">' + fmtInt(count) + "</td>";
     }
     html += "</tr>";
   }
@@ -374,8 +411,7 @@ function budgetCell(lbl, innerHtml, valClass) {
   return '<div class="budget-cell"><div class="bc-lbl">' + esc(lbl) + '</div><div class="bc-val' + vc + '">' + innerHtml + "</div></div>";
 }
 
-function postTypeTable(prof, ins, guest, other) {
-  var oth = other || { published: 0, pending: 0, content_requested: 0 };
+function postTypeTable(prof, guest) {
   var html = '<div class="sf-body">';
   html += '<div class="pt-wrap"><table class="pt-table">';
   html += "<thead><tr>";
@@ -385,11 +421,9 @@ function postTypeTable(prof, ins, guest, other) {
   html += '<th scope="col" class="pt-th-cr">Content requested</th>';
   html += "</tr></thead><tbody>";
   html += ptRow("Profound Placement", "row-prof", prof, false);
-  html += ptRow("Link insert", "row-ins", ins, false);
   html += ptRow("Guest post", "row-guest", guest, true);
-  html += ptRow("Other (no or unknown type)", "row-other", oth, true);
   html += "</tbody></table></div>";
-  html += "<p class=\"pt-footnote\">Content requested: guest posts and rows in Other (empty or unknown type). Profound and link insert use \"-\". Budget uses FINAL $ per API rules.</p>";
+  html += "<p class=\"pt-footnote\">Pipeline table shows Profound Placement and Guest post only. Content requested applies to guest posts (Profound shows \"-\"). Budget / spend above still uses FINAL $ for all post types in this production month (API rules).</p>";
   html += "</div>";
   return html;
 }
@@ -407,7 +441,7 @@ function ptRow(name, rowClass, data, showCR) {
 function renderMonth(payload) {
   var pm = payload.current_prod_month || "";
   document.getElementById("month-hint").innerHTML =
-    "<strong>This month.</strong> Production month <strong>" + esc(pm) + "</strong>. One table per client: pipeline by post type, then budget summary above the fold.";
+    "<strong>This month.</strong> Production month <strong>" + esc(pm) + "</strong>. Per client: budget summary, then pipeline for <strong>Profound Placement</strong> and <strong>Guest post</strong> only.";
 
   var grid = document.getElementById("month-grid");
   var list = payload.currentMonth || [];
@@ -420,9 +454,7 @@ function renderMonth(payload) {
     var c = list[i];
     var sec = c.sections || {};
     var prof = sec.profound || { published: 0, pending: 0, content_requested: 0 };
-    var ins = sec.linkInsert || { published: 0, pending: 0, content_requested: 0 };
     var guest = sec.guestPost || { published: 0, pending: 0, content_requested: 0 };
-    var other = sec.other || { published: 0, pending: 0, content_requested: 0 };
 
     var bud = c.budget;
     var spend = c.spend;
@@ -438,7 +470,7 @@ function renderMonth(payload) {
     html += budgetCell("Remaining", rem == null ? '<span class="bc-muted">N/A</span>' : "$" + fmtMoney(rem), remClass);
     html += "</div>";
 
-    html += postTypeTable(prof, ins, guest, other);
+    html += postTypeTable(prof, guest);
     html += "</div>";
   }
   grid.innerHTML = html;
