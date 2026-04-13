@@ -419,10 +419,10 @@ function publishedRowsForClient(tiles, clientName, postType) {
     var sb = b.live_link_sort;
     var na = sa == null || typeof sa !== "number" || isNaN(sa);
     var nb = sb == null || typeof sb !== "number" || isNaN(sb);
-    if (na && nb) return 0;
-    if (na) return -1;
-    if (nb) return 1;
-    if (sa !== sb) return sa - sb;
+    if (na && nb) return (a.live_link || "").localeCompare(b.live_link || "");
+    if (na) return 1;
+    if (nb) return -1;
+    if (sa !== sb) return sb - sa;
     return (a.live_link || "").localeCompare(b.live_link || "");
   });
   return out;
@@ -467,7 +467,7 @@ function renderClientTabPanels(activeClients, payload) {
     wrap.className = "tab-content";
     wrap.id = "tab-client-" + i;
     wrap.innerHTML =
-      '<p class="panel-hint"><strong>' + esc(cname) + ".</strong> Published in <strong>" + esc(String(yr)) + '</strong> (Profound Placement &amp; Guest post). Sorted by live link date: oldest first, newest at bottom.</p>' +
+      '<p class="panel-hint"><strong>' + esc(cname) + ".</strong> Published in <strong>" + esc(String(yr)) + '</strong> (Profound Placement &amp; Guest post). Sorted by live link date: <strong>newest first</strong> (no date at bottom).</p>' +
       '<div class="client-links-section"><h2 class="panel-title">Profound Placement</h2>' +
       clientLinksTableHtml(prof) +
       "</div>" +
