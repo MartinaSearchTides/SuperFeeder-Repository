@@ -34,6 +34,23 @@
   --red:    #c0392b;
   --orange: #e07820;
   --green:  #1a8a52;
+  /* Jemné podbarvení sloupců klientů (2026 tabulky), z palety výše */
+  --year-col-0: rgba(14,158,128,0.07);
+  --year-col-1: rgba(91,77,224,0.07);
+  --year-col-2: rgba(196,122,26,0.07);
+  --year-col-3: rgba(15,118,110,0.08);
+  --year-col-4: rgba(26,138,82,0.065);
+  --year-col-5: rgba(224,120,32,0.065);
+  --year-col-6: rgba(14,158,128,0.045);
+  --year-col-7: rgba(91,77,224,0.045);
+  --year-col-hi-0: rgba(14,158,128,0.12);
+  --year-col-hi-1: rgba(91,77,224,0.12);
+  --year-col-hi-2: rgba(196,122,26,0.11);
+  --year-col-hi-3: rgba(15,118,110,0.13);
+  --year-col-hi-4: rgba(26,138,82,0.11);
+  --year-col-hi-5: rgba(224,120,32,0.11);
+  --year-col-hi-6: rgba(14,158,128,0.09);
+  --year-col-hi-7: rgba(91,77,224,0.09);
   --fd: 'Libre Baskerville', serif;
   --fs: 'Inter', sans-serif;
   --fm: 'DM Mono', monospace;
@@ -97,13 +114,36 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text);
-  background: var(--surface2);
   text-align: center;
   white-space: normal;
   min-width: 5.25rem;
   line-height: 1.2;
   padding: 14px 12px;
 }
+.year-table thead th.year-th-client.year-col-0 { background: var(--year-col-0); }
+.year-table thead th.year-th-client.year-col-1 { background: var(--year-col-1); }
+.year-table thead th.year-th-client.year-col-2 { background: var(--year-col-2); }
+.year-table thead th.year-th-client.year-col-3 { background: var(--year-col-3); }
+.year-table thead th.year-th-client.year-col-4 { background: var(--year-col-4); }
+.year-table thead th.year-th-client.year-col-5 { background: var(--year-col-5); }
+.year-table thead th.year-th-client.year-col-6 { background: var(--year-col-6); }
+.year-table thead th.year-th-client.year-col-7 { background: var(--year-col-7); }
+.year-table tbody td.year-col-0 { background: var(--year-col-0); }
+.year-table tbody td.year-col-1 { background: var(--year-col-1); }
+.year-table tbody td.year-col-2 { background: var(--year-col-2); }
+.year-table tbody td.year-col-3 { background: var(--year-col-3); }
+.year-table tbody td.year-col-4 { background: var(--year-col-4); }
+.year-table tbody td.year-col-5 { background: var(--year-col-5); }
+.year-table tbody td.year-col-6 { background: var(--year-col-6); }
+.year-table tbody td.year-col-7 { background: var(--year-col-7); }
+.year-table tbody tr:hover td.year-col-0 { background: var(--year-col-hi-0); }
+.year-table tbody tr:hover td.year-col-1 { background: var(--year-col-hi-1); }
+.year-table tbody tr:hover td.year-col-2 { background: var(--year-col-hi-2); }
+.year-table tbody tr:hover td.year-col-3 { background: var(--year-col-hi-3); }
+.year-table tbody tr:hover td.year-col-4 { background: var(--year-col-hi-4); }
+.year-table tbody tr:hover td.year-col-5 { background: var(--year-col-hi-5); }
+.year-table tbody tr:hover td.year-col-6 { background: var(--year-col-hi-6); }
+.year-table tbody tr:hover td.year-col-7 { background: var(--year-col-hi-7); }
 .year-table tbody th.year-row-month {
   font-family: var(--fd);
   font-size: 14px;
@@ -118,7 +158,6 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
   line-height: 1.2;
   text-align: center;
 }
-.year-table tbody tr:hover td { background: var(--surface2); }
 .year-table tbody tr:hover th.year-row-month { background: var(--surface2); }
 .num-zero { color: var(--muted); font-weight: 600 !important; font-size: 17px !important; }
 
@@ -415,7 +454,7 @@ function renderYearTable(payload) {
   var html = '<div class="table-wrap"><table class="year-table"><thead><tr>';
   html += '<th scope="col" class="year-corner">Month</th>';
   for (var c = 0; c < clients.length; c++) {
-    html += '<th scope="col" class="year-th-client">' + esc(clients[c]) + "</th>";
+    html += '<th scope="col" class="year-th-client year-col-' + (c % 8) + '">' + esc(clients[c]) + "</th>";
   }
   html += "</tr></thead><tbody>";
   for (var m = 0; m < months.length; m++) {
@@ -424,7 +463,7 @@ function renderYearTable(payload) {
     for (var r = 0; r < matrix.length; r++) {
       var bm = matrix[r].byMonth || {};
       var count = bm[mk] || 0;
-      html += '<td class="year-cell-num ' + (count ? "" : "num-zero") + '">' + fmtInt(count) + "</td>";
+      html += '<td class="year-cell-num year-col-' + (r % 8) + " " + (count ? "" : "num-zero") + '">' + fmtInt(count) + "</td>";
     }
     html += "</tr>";
   }
@@ -448,7 +487,7 @@ function renderYearSpendTable(payload) {
   var html = '<div class="table-wrap"><table class="year-table"><thead><tr>';
   html += '<th scope="col" class="year-corner">Month</th>';
   for (var c = 0; c < clients.length; c++) {
-    html += '<th scope="col" class="year-th-client">' + esc(clients[c]) + "</th>";
+    html += '<th scope="col" class="year-th-client year-col-' + (c % 8) + '">' + esc(clients[c]) + "</th>";
   }
   html += "</tr></thead><tbody>";
   for (var m = 0; m < months.length; m++) {
@@ -458,7 +497,7 @@ function renderYearSpendTable(payload) {
       var bm = matrix[r].byMonth || {};
       var amt = parseFloat(bm[mk]);
       if (isNaN(amt)) amt = 0;
-      html += '<td class="year-cell-money ' + (amt ? "" : "num-zero") + '">$' + fmtMoney(amt) + "</td>";
+      html += '<td class="year-cell-money year-col-' + (r % 8) + " " + (amt ? "" : "num-zero") + '">$' + fmtMoney(amt) + "</td>";
     }
     html += "</tr>";
   }
