@@ -79,7 +79,9 @@ If a client/month is missing, **This month** shows budget as "Not set" and remai
 - **Table:** `OM`  
 - **View:** `Published Links_for Superfeeders Dashboard`  
 
-Relevant columns: `CLIENT*`, `Prod Month`, `STATUS 1`, `Type of Post`, `LIVE LINK`, `FINAL $`.
+Relevant OM columns: `CLIENT*`, `Prod Month`, `STATUS 1`, `Type of Post`, `LIVE LINK`, `FINAL $`, `DOMAIN`, `Live Link Date`.
+
+**Clients (tabs & matrix columns):** table **`Clients`**, view **`Default view`**. Only rows whose **`STATUS`** is **`ACTIVE`** (case-insensitive) appear as dashboard columns and per-client tabs. The client name column should match **`CLIENT*`** text in OM. If the Clients table is missing or fails to load, the API falls back to all clients found in OM.
 
 ## Notes
 

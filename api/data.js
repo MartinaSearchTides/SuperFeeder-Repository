@@ -3,6 +3,10 @@ const SERVER = "https://seatable.searchtides.com";
 const OM_TABLE = "OM";
 const OM_VIEW = "Published Links_for Superfeeders Dashboard";
 
+const CLIENTS_TABLE = "Clients";
+const CLIENTS_VIEW = "Default view";
+const CLIENT_RECORD_ACTIVE = "ACTIVE";
+
 const STATUS_PUBLISHED = "Published";
 const STATUS_PENDING = "Pending";
 const STATUS_CONTENT_REQUESTED = "Content Requested";
@@ -198,6 +202,89 @@ function getLiveLink(row) {
   return String(s || "").trim();
 }
 
+function getDomain(row) {
+  const v = row["DOMAIN"] ?? row["Domain"] ?? row["domain"];
+  const s = resolve(v) || (v == null || v === "" ? "" : String(v));
+  return String(s || "").trim();
+}
+
+function findLiveLinkDateRaw(row) {
+  const direct = ["Live Link Date", "LIVE LINK DATE", "Live link date", "Live Link date"];
+  for (let i = 0; i < direct.length; i++) {
+    if (Object.prototype.hasOwnProperty.call(row, direct[i])) return row[direct[i]];
+  }
+  for (const k of Object.keys(row)) {
+    const kn = String(k).replace(/^\uFEFF/, "").trim();
+    if (/live\s*link\s*date/i.test(kn)) return row[k];
+  }
+  return undefined;
+}
+
+/** Milliseconds for sorting; NaN if unknown (sorts before real dates when ascending) */
+function getLiveLinkDateSortMs(row) {
+  const raw = findLiveLinkDateRaw(row);
+  const r = resolve(raw);
+  const val = r != null ? r : raw;
+  if (val == null || val === "") return NaN;
+  if (typeof val === "number" && !isNaN(val)) {
+    if (val > 1e12) return val;
+    if (val > 1e9) return Math.round(val * 1000);
+    return val;
+  }
+  const d = new Date(val);
+  const t = d.getTime();
+  return isNaN(t) ? NaN : t;
+}
+
+function getLiveLinkDateDisplay(row) {
+  const raw = findLiveLinkDateRaw(row);
+  const r = resolve(raw);
+  const val = r != null ? r : raw;
+  if (val == null || val === "") return "";
+  if (typeof val === "string") return val.trim();
+  if (typeof val === "number" && !isNaN(val)) {
+    const ms = val > 1e12 ? val : val > 1e9 ? val * 1000 : val;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  }
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function findClientsStatusRaw(row) {
+  const direct = ["STATUS", "Status"];
+  for (let i = 0; i < direct.length; i++) {
+    if (Object.prototype.hasOwnProperty.call(row, direct[i])) return row[direct[i]];
+  }
+  for (const k of Object.keys(row)) {
+    const kn = String(k).replace(/^\uFEFF/, "").trim();
+    if (/^status$/i.test(kn)) return row[k];
+  }
+  return undefined;
+}
+
+function isActiveClientRow(row) {
+  const v = findClientsStatusRaw(row);
+  const r = resolve(v);
+  const raw = r != null ? r : v;
+  const s = raw == null ? "" : String(raw).trim().toUpperCase().replace(/\s+/g, " ");
+  return s === CLIENT_RECORD_ACTIVE;
+}
+
+/** Client names in Default view order, deduped, STATUS = ACTIVE */
+function activeClientsFromRows(clientRows) {
+  const out = [];
+  const seen = new Set();
+  for (const row of clientRows) {
+    if (!isActiveClientRow(row)) continue;
+    const name = getClient(row);
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push(name);
+  }
+  return out;
+}
+
 function rowCountsTowardSpend(status, postType) {
   if (status === STATUS_PUBLISHED || status === STATUS_PENDING) return true;
   if (status === STATUS_CONTENT_REQUESTED && postType === POST_GUEST) return true;
@@ -238,6 +325,13 @@ export default async function handler(req, res) {
   try {
     const access = await getAccess(TOKEN);
     const rows = await listRows(access, OM_TABLE, OM_VIEW);
+    let clientRows = [];
+    try {
+      clientRows = await listRows(access, CLIENTS_TABLE, CLIENTS_VIEW);
+    } catch (e) {
+      console.error("Superfeeder: Clients table load failed:", e.message);
+    }
+    const activeClientsOrdered = activeClientsFromRows(clientRows);
 
     const publishedCount = {};
     const publishedTiles = [];
@@ -285,10 +379,14 @@ export default async function handler(req, res) {
         publishedCount[client][mk] = (publishedCount[client][mk] || 0) + 1;
 
         const link = getLiveLink(row);
+        const sortMs = getLiveLinkDateSortMs(row);
         publishedTiles.push({
           client: client,
           prod_month: mk,
           live_link: link,
+          domain: getDomain(row),
+          live_link_date: getLiveLinkDateDisplay(row),
+          live_link_sort: isNaN(sortMs) ? null : sortMs,
           type_of_post: postType,
           final_usd: getFinalUsd(row)
         });
@@ -351,7 +449,13 @@ export default async function handler(req, res) {
       ...Object.keys(spendByClientMonth)
     ])].sort();
 
-    const yearMatrix = clientsSorted.map(function (name) {
+    const clientsForColumns = activeClientsOrdered.length > 0
+      ? activeClientsOrdered
+      : clientsSorted;
+
+    const activeSet = new Set(clientsForColumns);
+
+    const yearMatrix = clientsForColumns.map(function (name) {
       const byMonth = {};
       for (const mk of months) {
         byMonth[mk] = (publishedCount[name] && publishedCount[name][mk]) || 0;
@@ -359,7 +463,7 @@ export default async function handler(req, res) {
       return { client: name, byMonth: byMonth };
     });
 
-    const yearSpendMatrix = clientsSorted.map(function (name) {
+    const yearSpendMatrix = clientsForColumns.map(function (name) {
       const byMonth = {};
       for (const mk of months) {
         const v = (spendByClientMonth[name] && spendByClientMonth[name][mk]) || 0;
@@ -368,7 +472,9 @@ export default async function handler(req, res) {
       return { client: name, byMonth: byMonth };
     });
 
-    const currentMonthList = [...currentClientsSet].sort();
+    const currentMonthList = [...currentClientsSet].filter(function (name) {
+      return activeSet.has(name);
+    }).sort();
     const currentMonthPayload = currentMonthList.map(function (name) {
       const sections = currentSections[name] || sectionTemplate();
       const budgetRaw = budgetMap[name] && budgetMap[name][PM_CURRENT];
@@ -407,6 +513,7 @@ export default async function handler(req, res) {
       months: months,
       yearMatrix: yearMatrix,
       yearSpendMatrix: yearSpendMatrix,
+      activeClients: activeClientsOrdered.length > 0 ? activeClientsOrdered : clientsSorted,
       publishedTiles: publishedTiles,
       currentMonth: currentMonthPayload,
       debug: debugSample
