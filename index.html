@@ -120,6 +120,17 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
 .year-table tbody tr:hover th.year-row-month { background: var(--surface2); }
 .num-zero { color: var(--muted); font-weight: 600 !important; font-size: 17px !important; }
 
+.year-spend-block { margin-top: 1.75rem; }
+.year-spend-block .panel-title { margin-bottom: 0.5rem; }
+.year-table tbody td.year-cell-money {
+  font-family: var(--fd);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  color: #5c4818;
+}
+
 .year-split { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border2); }
 .link-grid-title { font-family: var(--fd); font-size: 16px; font-weight: 700; margin: 0 0 0.35rem; }
 .link-grid-sub { font-size: 12px; color: var(--muted); font-family: var(--fs); margin-bottom: 1rem; }
@@ -236,8 +247,12 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
     <div class="tab" data-tab="month" onclick="switchTab('month')">This month</div>
   </div>
   <div class="tab-content active" id="tab-year">
-    <p class="panel-hint"><strong>2026 overview.</strong> Rows are months, columns are clients—published article counts only. Further down, each card opens the live URL from SeaTable.</p>
+    <p class="panel-hint"><strong>2026 overview.</strong> Rows are months, columns are clients. First table: <strong>published</strong> counts only. Second: <strong>Spend (FINAL $)</strong> per month—same rules as <em>This month</em> (Published + Pending + Content Requested for Guest/Other). Further down, each card opens the live URL from SeaTable.</p>
     <div id="year-table-host"></div>
+    <div class="year-spend-block" id="year-spend-block">
+      <h2 class="panel-title">Spend (FINAL $) by month</h2>
+      <div id="year-spend-table-host"></div>
+    </div>
     <div class="year-split">
       <h2 class="link-grid-title">Published links</h2>
       <p class="link-grid-sub" id="link-grid-sub"></p>
@@ -311,6 +326,40 @@ function renderYearTable(payload) {
       var bm = matrix[r].byMonth || {};
       var count = bm[mk] || 0;
       html += '<td class="year-cell-num ' + (count ? "" : "num-zero") + '">' + fmtInt(count) + "</td>";
+    }
+    html += "</tr>";
+  }
+  html += "</tbody></table></div>";
+  host.innerHTML = html;
+}
+
+function renderYearSpendTable(payload) {
+  var block = document.getElementById("year-spend-block");
+  var host = document.getElementById("year-spend-table-host");
+  var months = payload.months || [];
+  var matrix = payload.yearSpendMatrix || [];
+  if (!host) return;
+  if (!matrix.length) {
+    if (block) block.style.display = "none";
+    host.innerHTML = "";
+    return;
+  }
+  if (block) block.style.display = "";
+  var clients = matrix.map(function (row) { return row.client; });
+  var html = '<div class="table-wrap"><table class="year-table"><thead><tr>';
+  html += '<th scope="col" class="year-corner">Month</th>';
+  for (var c = 0; c < clients.length; c++) {
+    html += '<th scope="col" class="year-th-client">' + esc(clients[c]) + "</th>";
+  }
+  html += "</tr></thead><tbody>";
+  for (var m = 0; m < months.length; m++) {
+    var mk = months[m];
+    html += '<tr><th scope="row" class="year-row-month">' + esc(mk) + "</th>";
+    for (var r = 0; r < matrix.length; r++) {
+      var bm = matrix[r].byMonth || {};
+      var amt = parseFloat(bm[mk]);
+      if (isNaN(amt)) amt = 0;
+      html += '<td class="year-cell-money ' + (amt ? "" : "num-zero") + '">$' + fmtMoney(amt) + "</td>";
     }
     html += "</tr>";
   }
@@ -497,6 +546,7 @@ async function loadData() {
       json.year + " data - " + (json.current_prod_month || "") + " - " + tiles + " published tiles - loaded " + loaded;
 
     renderYearTable(json);
+    renderYearSpendTable(json);
     renderLinkGrid(json);
     renderMonth(json);
 

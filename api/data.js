@@ -255,6 +255,8 @@ export default async function handler(req, res) {
 
     const currentSections = {};
     const spendByClient = {};
+    /** Same rules as This month Spend (FINAL $), summed per client × Prod Month for YEAR */
+    const spendByClientMonth = {};
 
     for (const row of rows) {
       const client = getClient(row);
@@ -290,6 +292,14 @@ export default async function handler(req, res) {
           type_of_post: postType,
           final_usd: getFinalUsd(row)
         });
+      }
+
+      if (parsed && parsed.year === YEAR && rowCountsTowardSpend(status, postType)) {
+        const mk = parsed.label;
+        const amt = getFinalUsd(row);
+        if (!spendByClientMonth[client]) spendByClientMonth[client] = {};
+        const prev = spendByClientMonth[client][mk] || 0;
+        spendByClientMonth[client][mk] = Math.round((prev + amt) * 100) / 100;
       }
 
       if (pm === normalizeProdMonthLabel(PM_CURRENT)) {
@@ -337,13 +347,23 @@ export default async function handler(req, res) {
       ...clientsInYear,
       ...Object.keys(publishedCount),
       ...Object.keys(currentSections),
-      ...Object.keys(spendByClient)
+      ...Object.keys(spendByClient),
+      ...Object.keys(spendByClientMonth)
     ])].sort();
 
     const yearMatrix = clientsSorted.map(function (name) {
       const byMonth = {};
       for (const mk of months) {
         byMonth[mk] = (publishedCount[name] && publishedCount[name][mk]) || 0;
+      }
+      return { client: name, byMonth: byMonth };
+    });
+
+    const yearSpendMatrix = clientsSorted.map(function (name) {
+      const byMonth = {};
+      for (const mk of months) {
+        const v = (spendByClientMonth[name] && spendByClientMonth[name][mk]) || 0;
+        byMonth[mk] = v;
       }
       return { client: name, byMonth: byMonth };
     });
@@ -386,6 +406,7 @@ export default async function handler(req, res) {
       current_prod_month: PM_CURRENT,
       months: months,
       yearMatrix: yearMatrix,
+      yearSpendMatrix: yearSpendMatrix,
       publishedTiles: publishedTiles,
       currentMonth: currentMonthPayload,
       debug: debugSample
