@@ -93,15 +93,16 @@ body { font-family: var(--fs); background: var(--bg); color: var(--text); min-he
 .year-table thead th.year-corner { z-index: 3; background: var(--surface2); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .year-table thead th.year-th-client {
   font-family: var(--fd);
-  font-size: 13px;
+  font-size: clamp(15px, 1.35vw, 19px);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text);
   background: var(--surface2);
   text-align: center;
   white-space: normal;
-  min-width: 4.5rem;
-  line-height: 1.25;
+  min-width: 5.25rem;
+  line-height: 1.2;
+  padding: 14px 12px;
 }
 .year-table tbody th.year-row-month {
   font-family: var(--fd);
