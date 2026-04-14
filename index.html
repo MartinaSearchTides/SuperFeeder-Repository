@@ -630,7 +630,15 @@ async function saveClientBudget(idx) {
   }
 }
 
-function postTypeTable(prof, guest) {
+function sectionHasPipelineActivity(sec) {
+  if (!sec) return false;
+  var a = Number(sec.published) || 0;
+  var b = Number(sec.pending) || 0;
+  var c = Number(sec.content_requested) || 0;
+  return a + b + c > 0;
+}
+
+function postTypeTable(prof, guest, linkIns, other) {
   var html = '<div class="sf-body">';
   html += '<div class="pt-wrap"><table class="pt-table">';
   html += "<thead><tr>";
@@ -639,10 +647,16 @@ function postTypeTable(prof, guest) {
   html += '<th scope="col" class="pt-th-pend">Pending</th>';
   html += '<th scope="col" class="pt-th-cr">Content requested</th>';
   html += "</tr></thead><tbody>";
-  html += ptRow("Profound Placement", "row-prof", prof, false);
+  html += ptRow("Profound Placement", "row-prof", prof, true);
   html += ptRow("Guest post", "row-guest", guest, true);
+  if (sectionHasPipelineActivity(linkIns)) {
+    html += ptRow("Link insert", "row-li", linkIns, true);
+  }
+  if (sectionHasPipelineActivity(other)) {
+    html += ptRow("Other", "row-other", other, true);
+  }
   html += "</tbody></table></div>";
-  html += "<p class=\"pt-footnote\">This table lists <strong>Profound Placement</strong> and <strong>Guest post</strong> only. <em>Content requested</em> applies to guest posts; Profound shows a dash. The budget and spend figures above count all post types for this production month.</p>";
+  html += "<p class=\"pt-footnote\"><em>Content requested</em> includes rows whose SeaTable status is <strong>Content Requested</strong> or <strong>Ready for Delivery</strong>. Extra rows appear only when that type has activity this month. Budget and spend above still use all post types.</p>";
   html += "</div>";
   return html;
 }
@@ -682,6 +696,8 @@ function renderMonth(payload) {
     var sec = c.sections || {};
     var prof = sec.profound || { published: 0, pending: 0, content_requested: 0 };
     var guest = sec.guestPost || { published: 0, pending: 0, content_requested: 0 };
+    var linkIns = sec.linkInsert || { published: 0, pending: 0, content_requested: 0 };
+    var other = sec.other || { published: 0, pending: 0, content_requested: 0 };
 
     var bud = c.budget;
     var spend = c.spend;
@@ -720,7 +736,7 @@ function renderMonth(payload) {
     html += budgetCell("Remaining", rem == null ? '<span class="bc-muted">N/A</span>' : "$" + fmtMoney(rem), remClass);
     html += "</div>";
 
-    html += postTypeTable(prof, guest);
+    html += postTypeTable(prof, guest, linkIns, other);
     html += "</div>";
   }
   grid.innerHTML = html;

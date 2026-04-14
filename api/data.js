@@ -13,6 +13,8 @@ const CLIENT_RECORD_ACTIVE = "ACTIVE";
 const STATUS_PUBLISHED = "Published";
 const STATUS_PENDING = "Pending";
 const STATUS_CONTENT_REQUESTED = "Content Requested";
+/** SeaTable label merged into Content Requested in pipeline counts (This month + spend rules). */
+const STATUS_READY_FOR_DELIVERY = "Ready for Delivery";
 const ALL_STATUSES = [STATUS_PUBLISHED, STATUS_PENDING, STATUS_CONTENT_REQUESTED];
 
 const POST_PROFOUND = "Profound Placement";
@@ -147,9 +149,12 @@ function getStatusCanonical(row) {
   const raw = r != null ? r : v;
   const s = raw == null ? "" : String(raw).trim();
   if (!s) return null;
-  const low = s.toLowerCase();
+  const low = s.toLowerCase().replace(/\s+/g, " ");
   for (const st of ALL_STATUSES) {
-    if (st.toLowerCase() === low) return st;
+    if (st.toLowerCase().replace(/\s+/g, " ") === low) return st;
+  }
+  if (low === STATUS_READY_FOR_DELIVERY.toLowerCase().replace(/\s+/g, " ")) {
+    return STATUS_CONTENT_REQUESTED;
   }
   return null;
 }
@@ -442,9 +447,8 @@ export default async function handler(req, res) {
         const sec = currentSections[client][postType];
         if (status === STATUS_PUBLISHED) sec.published += 1;
         else if (status === STATUS_PENDING) sec.pending += 1;
-        else if (status === STATUS_CONTENT_REQUESTED && postType === POST_GUEST) {
-          sec.content_requested += 1;
-        } else if (status === STATUS_CONTENT_REQUESTED && postType === POST_OTHER) {
+        else if (status === STATUS_CONTENT_REQUESTED) {
+          /* Counts both SeaTable "Content Requested" and "Ready for Delivery" (canonicalized). All post types. */
           sec.content_requested += 1;
         }
 
